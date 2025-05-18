@@ -1,15 +1,16 @@
 package edu.itba.serverdps.services;
 
 import com.google.protobuf.Empty;
-import edu.itba.serverdps.exceptions.*;
-import edu.itba.serverdps.grpc.*;
-import edu.itba.serverdps.handlers.AttractionHandler;
-import edu.itba.serverdps.handlers.ReservationHandler;
-import edu.itba.serverdps.models.Attraction;
-import edu.itba.serverdps.models.Reservation;
-import edu.itba.serverdps.models.Ticket;
-import edu.itba.serverdps.models.TicketType;
-import edu.itba.serverdps.notifications.ReservationObserver;
+import edu.itba.serverdps.adapter.driving.AdminServiceImpl;
+import edu.itba.serverdps.application.exceptions.*;
+import edu.itba.serverdps.port.driving.grpc.*;
+import edu.itba.serverdps.domain.usecase.handler.AttractionHandler;
+import edu.itba.serverdps.domain.usecase.handler.ReservationHandler;
+import edu.itba.serverdps.domain.model.Attraction;
+import edu.itba.serverdps.domain.model.Reservation;
+import edu.itba.serverdps.domain.model.Ticket;
+import edu.itba.serverdps.domain.model.TicketType;
+import edu.itba.serverdps.domain.usecase.ReservationObserver;
 import io.grpc.stub.StreamObserver;
 import org.junit.Before;
 import org.junit.Test;

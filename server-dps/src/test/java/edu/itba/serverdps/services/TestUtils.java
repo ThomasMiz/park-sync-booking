@@ -1,7 +1,7 @@
 package edu.itba.serverdps.services;
 
-import edu.itba.serverdps.models.Ticket;
-import edu.itba.serverdps.utils.Constants;
+import edu.itba.serverdps.domain.model.Ticket;
+import edu.itba.serverdps.application.utils.Constants;
 import lombok.experimental.UtilityClass;
 
 import java.time.LocalTime;

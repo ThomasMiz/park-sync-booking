@@ -1,11 +1,11 @@
 package edu.itba.serverdps.services;
 
-import edu.itba.serverdps.exceptions.*;
-import edu.itba.serverdps.handlers.ReservationHandler;
-import edu.itba.serverdps.models.*;
-import edu.itba.serverdps.results.DefineSlotCapacityResult;
-import edu.itba.serverdps.results.MakeReservationResult;
-import edu.itba.serverdps.results.SuggestedCapacityResult;
+import edu.itba.serverdps.application.exceptions.*;
+import edu.itba.serverdps.domain.model.*;
+import edu.itba.serverdps.domain.usecase.handler.ReservationHandler;
+import edu.itba.serverdps.domain.model.result.DefineSlotCapacityResult;
+import edu.itba.serverdps.domain.model.result.MakeReservationResult;
+import edu.itba.serverdps.domain.model.result.SuggestedCapacityResult;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
