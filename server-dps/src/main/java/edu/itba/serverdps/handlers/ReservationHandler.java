@@ -10,6 +10,7 @@ import edu.itba.serverdps.results.DefineSlotCapacityResult;
 import edu.itba.serverdps.results.MakeReservationResult;
 import edu.itba.serverdps.results.SuggestedCapacityResult;
 import edu.itba.serverdps.exceptions.*;
+import lombok.Getter;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -23,11 +24,13 @@ public class ReservationHandler {
     /**
      * The attraction for which this ReservationHandler manages reservations.
      */
+    @Getter
     private final Attraction attraction;
 
     /**
      * The day of year for which this ReservationHandler manages reservations.
      */
+    @Getter
     private final int dayOfYear;
 
     /**
@@ -38,6 +41,7 @@ public class ReservationHandler {
     /**
      * The total amount of slots available for the day.
      */
+    @Getter
     private final int slotCount;
     /**
      * Stores the confirmed set of visitors for each slot. The slots are stored ordered by time ascending.
@@ -52,7 +56,11 @@ public class ReservationHandler {
     private final LinkedHashMap<UUID, Reservation>[] slotPendingRequests;
     /**
      * The amount of people each slot may assign, or -1 if this has not been defined yet.
+     * -- GETTER --
+     *  Gets the slot capacity, or -1 if it hasn't been defined yet.
+
      */
+    @Getter
     private int slotCapacity = -1;
     /**
      * A ReservationObserver that listens to reservation changes from this ReservationHandler.
@@ -159,25 +167,6 @@ public class ReservationHandler {
     private LocalTime getSlotTimeByIndex(int slotIndex) {
         int slotMinuteOfDay = firstSlotMinuteOfDay + slotIndex * attraction.getSlotDuration();
         return LocalTime.ofSecondOfDay(slotMinuteOfDay * 60L);
-    }
-
-    public Attraction getAttraction() {
-        return attraction;
-    }
-
-    public int getDayOfYear() {
-        return dayOfYear;
-    }
-
-    public int getSlotCount() {
-        return slotCount;
-    }
-
-    /**
-     * Gets the slot capacity, or -1 if it hasn't been defined yet.
-     */
-    public int getSlotCapacity() {
-        return slotCapacity;
     }
 
     /**

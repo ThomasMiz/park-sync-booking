@@ -3,9 +3,9 @@ package edu.itba.serverdps.services;
 import edu.itba.serverdps.exceptions.ServerException;
 import edu.itba.serverdps.exceptions.UnknownException;
 import io.grpc.*;
-import org.springframework.grpc.server.service.GrpcService;
+import org.springframework.grpc.server.GlobalServerInterceptor;
 
-@GrpcService
+@GlobalServerInterceptor
 public class ExceptionHandler implements ServerInterceptor {
 
     @Override

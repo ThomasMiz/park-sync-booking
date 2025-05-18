@@ -1,18 +1,15 @@
 package edu.itba.serverdps.utils;
 
 import edu.itba.serverdps.exceptions.*;
+import lombok.experimental.UtilityClass;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.UUID;
 
+@UtilityClass
 public final class ParseUtils {
-
-    // Suppress default constructor for noninstantiability
-    private ParseUtils() {
-        throw new AssertionError("Class is not instantiable");
-    }
 
     private static final DateTimeFormatter slotTimeFormatter = DateTimeFormatter.ofPattern("HH:mm");
 

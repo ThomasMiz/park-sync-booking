@@ -1,5 +1,7 @@
 package edu.itba.serverdps.models;
 
+import lombok.Getter;
+
 import java.util.Objects;
 import java.util.UUID;
 
@@ -7,16 +9,14 @@ import java.util.UUID;
  * Represents a reservation, whether pending or confirmed, made by a visitor with a ticket for an attraction.
  */
 public class Reservation {
+    @Getter
     private final Ticket ticket;
+    @Getter
     private final Attraction attraction;
 
     public Reservation(Ticket ticket, Attraction attraction) {
         this.ticket = ticket;
         this.attraction = attraction;
-    }
-
-    public Ticket getTicket() {
-        return ticket;
     }
 
     public UUID getVisitorId() {
@@ -25,10 +25,6 @@ public class Reservation {
 
     public int getDayOfYear() {
         return ticket.getDayOfYear();
-    }
-
-    public Attraction getAttraction() {
-        return attraction;
     }
 
     @Override

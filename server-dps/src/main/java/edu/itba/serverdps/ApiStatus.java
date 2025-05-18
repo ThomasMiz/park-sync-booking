@@ -1,11 +1,13 @@
 package edu.itba.serverdps;
 
 import io.grpc.Status;
+import lombok.Getter;
 
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Getter
 public enum ApiStatus {
 
     UNKNOWN("UNKNOWN", Status.UNKNOWN),
@@ -39,19 +41,11 @@ public enum ApiStatus {
         this.status = status;
     }
 
-    public String getMessageCode() {
-        return messageCode;
-    }
-
     private static final ApiStatus[] VALUES = ApiStatus.values();
 
     private static final Map<String, ApiStatus> VALUES_BY_CODE = Arrays.stream(VALUES).collect(Collectors.toMap(r -> r.messageCode, r -> r));
 
     public static ApiStatus fromCode(String code) {
         return code == null ? null : VALUES_BY_CODE.get(code.trim().toUpperCase());
-    }
-
-    public Status getStatus() {
-        return status;
     }
 }

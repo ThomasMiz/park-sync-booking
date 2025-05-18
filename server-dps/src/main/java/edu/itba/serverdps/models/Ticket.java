@@ -1,6 +1,7 @@
 package edu.itba.serverdps.models;
 
 import edu.itba.serverdps.exceptions.MissingPassException;
+import lombok.Getter;
 
 import java.time.LocalTime;
 import java.util.Objects;
@@ -13,8 +14,11 @@ import java.util.function.Supplier;
  * @implNote The bookTransactional() and removeBook() methods are thread-safe and work as atomic operations
  */
 public class Ticket {
+    @Getter
     private final UUID visitorId;
+    @Getter
     private final int dayOfYear;
+    @Getter
     private final TicketType ticketType;
     private int bookings;
 
@@ -58,18 +62,6 @@ public class Ticket {
         if (this.bookings <= 0)
             throw new IllegalStateException("Cannot removeBook() when bookings is not greater than zero: " + this.bookings);
         this.bookings--;
-    }
-
-    public UUID getVisitorId() {
-        return visitorId;
-    }
-
-    public int getDayOfYear() {
-        return dayOfYear;
-    }
-
-    public TicketType getTicketType() {
-        return ticketType;
     }
 
     @Override

@@ -8,6 +8,7 @@ import edu.itba.serverdps.results.DefineSlotCapacityResult;
 import edu.itba.serverdps.results.MakeReservationResult;
 import edu.itba.serverdps.results.SuggestedCapacityResult;
 import edu.itba.serverdps.utils.Constants;
+import lombok.Getter;
 
 import java.time.LocalTime;
 import java.util.Collection;
@@ -15,10 +16,15 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class Attraction {
+    @Getter
     private final String name;
+    @Getter
     private final LocalTime openingTime;
+    @Getter
     private final LocalTime closingTime;
+    @Getter
     private final int slotDuration;
+
     private final ReservationHandler[] reservationHandlers;
 
     public Attraction(String name, LocalTime openingTime, LocalTime closingTime, int slotDuration, ReservationObserver reservationObserver) {
@@ -33,25 +39,6 @@ public class Attraction {
 
     public Attraction(String name, LocalTime openingTime, LocalTime closingTime, int slotDuration) {
         this(name, openingTime, closingTime, slotDuration, null);
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public LocalTime getOpeningTime() {
-        return openingTime;
-    }
-
-    public LocalTime getClosingTime() {
-        return closingTime;
-    }
-
-    /**
-     * Gets the duration of each slot, measured in minutes.
-     */
-    public int getSlotDuration() {
-        return slotDuration;
     }
 
     /**

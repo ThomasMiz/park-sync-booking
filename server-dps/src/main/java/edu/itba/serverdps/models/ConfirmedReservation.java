@@ -1,15 +1,16 @@
 package edu.itba.serverdps.models;
 
-import edu.itba.serverdps.models.Attraction;
-import edu.itba.serverdps.models.Reservation;
-import edu.itba.serverdps.models.Ticket;
+import lombok.Getter;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 public class ConfirmedReservation extends Reservation {
+    @Getter
     private final LocalDateTime dateConfirmed;
+    @Getter
     private final LocalTime slotTime;
+    @Getter
     private final int sortingTiebreaker;
 
     public ConfirmedReservation(Ticket ticket, Attraction attraction, LocalTime slotTime, LocalDateTime dateConfirmed, int sortingTiebreaker) {
@@ -29,18 +30,6 @@ public class ConfirmedReservation extends Reservation {
 
     public ConfirmedReservation(Ticket ticket, Attraction attraction, LocalTime slotTime) {
         this(ticket, attraction, slotTime, LocalDateTime.now(), 0);
-    }
-
-    public LocalDateTime getDateConfirmed() {
-        return dateConfirmed;
-    }
-
-    public LocalTime getSlotTime() {
-        return slotTime;
-    }
-
-    public int getSortingTiebreaker() {
-        return sortingTiebreaker;
     }
 
     public int compareByDateAndTiebreakerTo(ConfirmedReservation other) {
