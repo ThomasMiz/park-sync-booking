@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+option java_package = "edu.itba.serverdps.grpc";
+option java_multiple_files = true;
+
+service QueryService {
+  rpc GetSuggestedCapacities(DayOfYearRequest) returns (SuggestedCapacitiesResponse);
+  rpc GetConfirmedReservations(DayOfYearRequest) returns (ConfirmedReservationsResponse);
+}
+
+message DayOfYearRequest {
+  int32 dayOfYear = 1;
+}
+
+message SuggestedCapacity {
+  string attractionName = 1;
+  int32 maxPendingReservations = 2;
+  string slotWithMaxReservations = 3;
+}
+
+message SuggestedCapacitiesResponse {
+  repeated SuggestedCapacity suggestedCapacity = 1;
+}
+
+
+message ConfirmedReservationsResponse {
+  repeated ConfirmedReservation confirmedReservation = 1;
+}
+
+message ConfirmedReservation {
+  string attractionName = 1;
+  string visitorId = 2;
+  string slot = 3;
+}

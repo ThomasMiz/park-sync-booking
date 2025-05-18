@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+option java_package = "edu.itba.serverdps.grpc";
+option java_multiple_files = true;
+
+service BookingService {
+  rpc GetAttractions(google.protobuf.Empty) returns (GetAttractionsResponse);
+  rpc CheckAttractionAvailability(AvailabilityRequest) returns (AvailabilityResponse);
+  rpc ReserveAttraction(BookingRequest) returns (ReservationResponse);
+  rpc ConfirmReservation(BookingRequest) returns (google.protobuf.Empty);
+  rpc CancelReservation(BookingRequest) returns (google.protobuf.Empty);
+}
+
+message Attraction {
+  string name = 1;
+  string openingTime = 2;
+  string closingTime = 3;
+}
+
+message GetAttractionsResponse {
+  repeated Attraction attraction = 1;
+}
+
+message AvailabilityRequest {
+  int32 dayOfYear = 1;
+  string attractionName = 2;
+  string slotFrom = 3;
+  string slotTo = 4;
+}
+
+message AvailabilityResponse {
+  repeated AvailabilitySlot slot = 1;
+}
+
+message AvailabilitySlot {
+  string slot = 1;
+  int32 slotCapacity = 2;
+  int32 bookingsPending = 3;
+  int32 bookingsConfirmed = 4;
+  string attractionName = 5;
+}
+
+message BookingRequest {
+  string attractionName = 1;
+  int32 dayOfYear = 2;
+  string slot = 3;
+  string visitorId = 4;
+}
+
+enum BookingState {
+  RESERVATION_STATUS_UNKNOWN = 0;
+  RESERVATION_STATUS_PENDING = 1;
+  RESERVATION_STATUS_CONFIRMED = 2;
+}
+
+message ReservationResponse {
+  BookingState state = 1;
+}

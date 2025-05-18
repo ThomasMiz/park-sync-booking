@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+option java_package = "edu.itba.serverdps.grpc";
+option java_multiple_files = true;
+
+service AdminService {
+  rpc AddAttraction(AddAttractionRequest) returns (google.protobuf.Empty);
+  rpc AddTicket(AddTicketRequest) returns (google.protobuf.Empty);
+  rpc AddCapacity(AddCapacityRequest) returns (AddCapacityResponse);
+}
+
+message AddAttractionRequest {
+  string name = 1;
+  string openingTime = 2;
+  string closingTime = 3;
+  int32 slotDurationMinutes = 4;
+}
+
+enum PassType {
+  PASS_TYPE_UNKNOWN = 0;
+  PASS_TYPE_HALF_DAY = 1;
+  PASS_TYPE_FULL_DAY = 2;
+  PASS_TYPE_UNLIMITED = 3;
+}
+
+message AddTicketRequest {
+  string visitorId = 1;
+  PassType passType = 2;
+  int32 dayOfYear = 3;
+}
+
+message AddCapacityRequest {
+  string attractionName = 1;
+  int32 dayOfYear = 2;
+  int32 capacity = 3;
+}
+
+message AddCapacityResponse {
+  int32 confirmedBookings = 1;
+  int32 relocatedBookings = 2;
+  int32 cancelledBookings = 3;
+}
