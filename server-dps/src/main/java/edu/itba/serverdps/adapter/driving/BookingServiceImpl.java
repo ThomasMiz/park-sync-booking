@@ -14,7 +14,9 @@ import org.springframework.grpc.server.service.GrpcService;
 
 import java.time.LocalTime;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @GrpcService
 public class BookingServiceImpl extends BookingServiceGrpc.BookingServiceImplBase {
@@ -27,18 +29,16 @@ public class BookingServiceImpl extends BookingServiceGrpc.BookingServiceImplBas
 
     @Override
     public void getAttractions(Empty request, StreamObserver<GetAttractionsResponse> responseObserver) {
-        GetAttractionsResponse.Builder responseBuilder = GetAttractionsResponse.newBuilder();
+        GetAttractionsResponse response = attractionHandler.getAttractions().stream()
+                .map(this::buildAttractionResponse)
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toList(),
+                        attractions -> GetAttractionsResponse.newBuilder()
+                                .addAllAttraction(attractions)
+                                .build()
+                ));
 
-        Collection<Attraction> attractions = attractionHandler.getAttractions();
-        for (Attraction attraction : attractions) {
-            responseBuilder.addAttraction(edu.itba.serverdps.port.driving.grpc.Attraction.newBuilder()
-                    .setName(attraction.getName())
-                    .setClosingTime(ParseUtils.formatTime(attraction.getClosingTime()))
-                    .setOpeningTime(ParseUtils.formatTime(attraction.getOpeningTime()))
-                    .build());
-        }
-
-        responseObserver.onNext(responseBuilder.build());
+        responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
@@ -46,36 +46,16 @@ public class BookingServiceImpl extends BookingServiceGrpc.BookingServiceImplBas
     public void checkAttractionAvailability(AvailabilityRequest request, StreamObserver<AvailabilityResponse> responseObserver) {
         int dayOfYear = ParseUtils.checkValidDayOfYear(request.getDayOfYear());
         LocalTime slotFrom = ParseUtils.parseTime(request.getSlotFrom());
-        LocalTime slotTo;
+        final var attractionName = ParseUtils.parseAttractionName(request.getAttractionName());
+        final var slotTo = ParseUtils.parseTimeOptional(request.getSlotTo());
 
-        String attractionName = ParseUtils.checkAttractionNameOrNull(request.getAttractionName());
-        slotTo = ParseUtils.parseTimeOrNull(request.getSlotTo());
-        if (attractionName == null && slotTo == null)
-            throw new CheckAvailabilityInvalidArgumentException();
+        validateAvailabilityRequest(attractionName, slotTo, slotFrom);
+        
+        Collection<AttractionAvailabilityResult> availabilityResults = getAvailabilityResults(
+                attractionName, dayOfYear, slotFrom, slotTo);
 
-        if (slotTo != null && slotFrom.isAfter(slotTo))
-            throw new InvalidSlotException();
-
-        Collection<AttractionAvailabilityResult> availabilityResults;
-        if (attractionName != null) {
-            availabilityResults = attractionHandler.getAvailabilityForAttraction(attractionName, dayOfYear, slotFrom, slotTo);
-        } else {
-            availabilityResults = attractionHandler.getAvailabilityForAllAttractions(dayOfYear, slotFrom, slotTo);
-        }
-
-        AvailabilityResponse.Builder responseBuilder = AvailabilityResponse.newBuilder();
-
-        for (AttractionAvailabilityResult availabilityResult : availabilityResults) {
-            responseBuilder.addSlot(AvailabilitySlot.newBuilder()
-                    .setAttractionName(availabilityResult.attractionName())
-                    .setSlot(ParseUtils.formatTime(availabilityResult.slotTime()))
-                    .setSlotCapacity(availabilityResult.slotCapacity())
-                    .setBookingsConfirmed(availabilityResult.confirmedReservations())
-                    .setBookingsPending(availabilityResult.pendingReservations())
-                    .build());
-        }
-
-        responseObserver.onNext(responseBuilder.build());
+        AvailabilityResponse response = buildAvailabilityResponse(availabilityResults);
+        responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
@@ -86,11 +66,15 @@ public class BookingServiceImpl extends BookingServiceGrpc.BookingServiceImplBas
         LocalTime slotTime = ParseUtils.parseTime(request.getSlot());
         UUID visitorId = ParseUtils.parseId(request.getVisitorId());
 
-        BookingState bookingState;
-        MakeReservationResult result = attractionHandler.makeReservation(attractionName, visitorId, dayOfYear, slotTime);
-        bookingState = result.isConfirmed() ? BookingState.RESERVATION_STATUS_CONFIRMED : BookingState.RESERVATION_STATUS_PENDING;
+        MakeReservationResult result = attractionHandler.makeReservation(
+                attractionName, visitorId, dayOfYear, slotTime);
+        
+        BookingState bookingState = mapToBookingState(result.isConfirmed());
+        ReservationResponse response = ReservationResponse.newBuilder()
+                .setState(bookingState)
+                .build();
 
-        responseObserver.onNext(ReservationResponse.newBuilder().setState(bookingState).build());
+        responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
@@ -116,5 +100,58 @@ public class BookingServiceImpl extends BookingServiceGrpc.BookingServiceImplBas
         attractionHandler.cancelReservation(attractionName, visitorId, dayOfYear, slotTime);
         responseObserver.onNext(Empty.newBuilder().build());
         responseObserver.onCompleted();
+    }
+
+    private edu.itba.serverdps.port.driving.grpc.Attraction buildAttractionResponse(Attraction attraction) {
+        return edu.itba.serverdps.port.driving.grpc.Attraction.newBuilder()
+                .setName(attraction.getName())
+                .setClosingTime(ParseUtils.formatTime(attraction.getClosingTime()))
+                .setOpeningTime(ParseUtils.formatTime(attraction.getOpeningTime()))
+                .build();
+    }
+
+    private void validateAvailabilityRequest(Optional<String> attractionName, Optional<LocalTime> slotTo, LocalTime slotFrom) {
+        if (attractionName.isEmpty() && slotTo.isEmpty()) {
+            throw new CheckAvailabilityInvalidArgumentException();
+        }
+        slotTo.ifPresent(to -> {
+            if (slotFrom.isAfter(to)) {
+                throw new InvalidSlotException();
+            }
+        });
+    }
+
+    private Collection<AttractionAvailabilityResult> getAvailabilityResults(
+            Optional<String> attractionName, int dayOfYear, LocalTime slotFrom, Optional<LocalTime> slotTo) {
+        return attractionName.map(name -> 
+                attractionHandler.getAvailabilityForAttraction(name, dayOfYear, slotFrom, slotTo.orElse(null)))
+                .orElseGet(() -> attractionHandler.getAvailabilityForAllAttractions(dayOfYear, slotFrom, slotTo.orElse(null)));
+    }
+
+    private AvailabilityResponse buildAvailabilityResponse(Collection<AttractionAvailabilityResult> results) {
+        return results.stream()
+                .map(this::buildAvailabilitySlot)
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toList(),
+                        slots -> AvailabilityResponse.newBuilder()
+                                .addAllSlot(slots)
+                                .build()
+                ));
+    }
+
+    private AvailabilitySlot buildAvailabilitySlot(AttractionAvailabilityResult result) {
+        return AvailabilitySlot.newBuilder()
+                .setAttractionName(result.attractionName())
+                .setSlot(ParseUtils.formatTime(result.slotTime()))
+                .setSlotCapacity(result.slotCapacity())
+                .setBookingsConfirmed(result.confirmedReservations())
+                .setBookingsPending(result.pendingReservations())
+                .build();
+    }
+
+    private BookingState mapToBookingState(boolean isConfirmed) {
+        return isConfirmed ? 
+                BookingState.RESERVATION_STATUS_CONFIRMED : 
+                BookingState.RESERVATION_STATUS_PENDING;
     }
 }

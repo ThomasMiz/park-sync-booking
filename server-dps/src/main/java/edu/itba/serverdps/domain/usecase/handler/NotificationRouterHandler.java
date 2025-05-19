@@ -14,6 +14,7 @@ import java.time.LocalTime;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.Optional;
 
 /**
  * An implementation of ReservationObserver that routes notifications to different NotificationStreamObserver instances
@@ -31,90 +32,68 @@ public class NotificationRouterHandler implements ReservationObserver {
 
     @Override
     public void onSlotCapacitySet(Attraction attraction, int dayOfYear, int slotCapacity) {
-        ConcurrentMap<Attraction, ConcurrentMap<UUID, NotificationStreamObserver>> attractionMap = streamsByDay[dayOfYear];
-        ConcurrentMap<UUID, NotificationStreamObserver> idMap = attractionMap.get(attraction);
-
-        if (idMap != null)
-            idMap.forEach((vid, notif) -> notif.onSlotCapacitySet(attraction, dayOfYear, slotCapacity));
+        Optional.ofNullable(streamsByDay[dayOfYear])
+                .map(attractionMap -> attractionMap.get(attraction))
+                .ifPresent(idMap -> idMap.forEach((vid, notif) -> 
+                    notif.onSlotCapacitySet(attraction, dayOfYear, slotCapacity)));
     }
 
     @Override
     public void onCreated(Reservation reservation, LocalTime slotTime, boolean isConfirmed) {
-        int dayOfYear = reservation.getDayOfYear();
-        Attraction attraction = reservation.getAttraction();
-
-        ConcurrentMap<Attraction, ConcurrentMap<UUID, NotificationStreamObserver>> attractionMap = streamsByDay[dayOfYear];
-        ConcurrentMap<UUID, NotificationStreamObserver> idMap = attractionMap.get(attraction);
-        NotificationStreamObserver stream;
-
-        if (idMap != null && (stream = idMap.get(reservation.getVisitorId())) != null) {
-            stream.onCreated(reservation, slotTime, isConfirmed);
-            stream.onComplete();
-            idMap.remove(reservation.getVisitorId());
-        }
+        notifyObserver(reservation.getDayOfYear(), reservation.getAttraction(), reservation.getVisitorId(),
+                stream -> {
+                    stream.onCreated(reservation, slotTime, isConfirmed);
+                    stream.onComplete();
+                });
     }
 
     @Override
     public void onConfirmed(ConfirmedReservation reservation) {
-        int dayOfYear = reservation.getDayOfYear();
-        Attraction attraction = reservation.getAttraction();
-
-        ConcurrentMap<Attraction, ConcurrentMap<UUID, NotificationStreamObserver>> attractionMap = streamsByDay[dayOfYear];
-        ConcurrentMap<UUID, NotificationStreamObserver> idMap = attractionMap.get(attraction);
-        NotificationStreamObserver stream;
-
-        if (idMap != null && (stream = idMap.get(reservation.getVisitorId())) != null) {
-            stream.onConfirmed(reservation);
-            stream.onComplete();
-            idMap.remove(reservation.getVisitorId());
-        }
+        notifyObserver(reservation.getDayOfYear(), reservation.getAttraction(), reservation.getVisitorId(),
+                stream -> {
+                    stream.onConfirmed(reservation);
+                    stream.onComplete();
+                });
     }
 
     @Override
     public void onRelocated(Reservation reservation, LocalTime prevSlotTime, LocalTime newSlotTime) {
-        int dayOfYear = reservation.getDayOfYear();
-        Attraction attraction = reservation.getAttraction();
-
-        ConcurrentMap<Attraction, ConcurrentMap<UUID, NotificationStreamObserver>> attractionMap = streamsByDay[dayOfYear];
-        ConcurrentMap<UUID, NotificationStreamObserver> idMap = attractionMap.get(attraction);
-        NotificationStreamObserver stream;
-
-        if (idMap != null && (stream = idMap.get(reservation.getVisitorId())) != null)
-            stream.onRelocated(reservation, prevSlotTime, newSlotTime);
+        notifyObserver(reservation.getDayOfYear(), reservation.getAttraction(), reservation.getVisitorId(),
+                stream -> stream.onRelocated(reservation, prevSlotTime, newSlotTime));
     }
 
     @Override
     public void onCancelled(Reservation reservation, LocalTime slotTime) {
-        int dayOfYear = reservation.getDayOfYear();
-        Attraction attraction = reservation.getAttraction();
+        notifyObserver(reservation.getDayOfYear(), reservation.getAttraction(), reservation.getVisitorId(),
+                stream -> {
+                    stream.onCancelled(reservation, slotTime);
+                    stream.onComplete();
+                });
+    }
 
-        ConcurrentMap<Attraction, ConcurrentMap<UUID, NotificationStreamObserver>> attractionMap = streamsByDay[dayOfYear];
-        ConcurrentMap<UUID, NotificationStreamObserver> idMap = attractionMap.get(attraction);
-        NotificationStreamObserver stream;
-
-        if (idMap != null && (stream = idMap.get(reservation.getVisitorId())) != null) {
-            stream.onCancelled(reservation, slotTime);
-            stream.onComplete();
-            idMap.remove(reservation.getVisitorId());
-        }
+    private void notifyObserver(int dayOfYear, Attraction attraction, UUID visitorId, 
+            java.util.function.Consumer<NotificationStreamObserver> action) {
+        Optional.ofNullable(streamsByDay[dayOfYear])
+                .map(attractionMap -> attractionMap.get(attraction))
+                .map(idMap -> idMap.remove(visitorId))
+                .ifPresent(action);
     }
 
     public void subscribe(NotificationStreamObserver observer, Attraction attraction, UUID visitorId, int dayOfYear) {
         ConcurrentMap<Attraction, ConcurrentMap<UUID, NotificationStreamObserver>> attractionMap = streamsByDay[dayOfYear];
         ConcurrentMap<UUID, NotificationStreamObserver> idMap = attractionMap.computeIfAbsent(attraction, k -> new ConcurrentHashMap<>());
-        boolean success = idMap.putIfAbsent(visitorId, observer) == null;
-
-        if (!success)
+        if (idMap.putIfAbsent(visitorId, observer) != null) {
             throw new AlreadyRegisteredForNotificationsException();
+        }
     }
 
     public void unsubscribe(Attraction attraction, UUID visitorId, int dayOfYear) {
-        ConcurrentMap<Attraction, ConcurrentMap<UUID, NotificationStreamObserver>> attractionMap = streamsByDay[dayOfYear];
-        ConcurrentMap<UUID, NotificationStreamObserver> idMap;
-        NotificationStreamObserver stream;
-        if (attractionMap == null || (idMap = attractionMap.get(attraction)) == null || (stream = idMap.remove(visitorId)) == null)
-            throw new NotRegisteredForNotificationsException();
-
-        stream.onComplete();
+        Optional.ofNullable(streamsByDay[dayOfYear])
+                .map(attractionMap -> attractionMap.get(attraction))
+                .map(idMap -> idMap.remove(visitorId))
+                .ifPresentOrElse(
+                    stream -> stream.onComplete(),
+                    () -> { throw new NotRegisteredForNotificationsException(); }
+                );
     }
 }

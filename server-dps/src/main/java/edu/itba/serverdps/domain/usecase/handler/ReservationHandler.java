@@ -15,22 +15,23 @@ import lombok.Getter;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Manages the reservations for an attraction, for a specific day.
  */
+@Getter
 public class ReservationHandler {
 
     /**
      * The attraction for which this ReservationHandler manages reservations.
      */
-    @Getter
     private final Attraction attraction;
 
     /**
      * The day of year for which this ReservationHandler manages reservations.
      */
-    @Getter
     private final int dayOfYear;
 
     /**
@@ -41,7 +42,6 @@ public class ReservationHandler {
     /**
      * The total amount of slots available for the day.
      */
-    @Getter
     private final int slotCount;
     /**
      * Stores the confirmed set of visitors for each slot. The slots are stored ordered by time ascending.
@@ -60,7 +60,6 @@ public class ReservationHandler {
      *  Gets the slot capacity, or -1 if it hasn't been defined yet.
 
      */
-    @Getter
     private int slotCapacity = -1;
     /**
      * A ReservationObserver that listens to reservation changes from this ReservationHandler.
@@ -117,19 +116,21 @@ public class ReservationHandler {
     }
 
     private Map<UUID, ConfirmedReservation> getOrCreateSlotConfirmedRequests(int slotIndex) {
-        Map<UUID, ConfirmedReservation> confirmed = slotConfirmedRequests[slotIndex];
-        if (confirmed == null)
-            confirmed = slotConfirmedRequests[slotIndex] = new HashMap<>();
-
-        return confirmed;
+        return Optional.ofNullable(slotConfirmedRequests[slotIndex])
+                .orElseGet(() -> {
+                    Map<UUID, ConfirmedReservation> confirmed = new HashMap<>();
+                    slotConfirmedRequests[slotIndex] = confirmed;
+                    return confirmed;
+                });
     }
 
     private LinkedHashMap<UUID, Reservation> getOrCreateSlotPendingRequests(int slotIndex) {
-        LinkedHashMap<UUID, Reservation> pending = slotPendingRequests[slotIndex];
-        if (pending == null)
-            pending = slotPendingRequests[slotIndex] = new LinkedHashMap<>();
-
-        return pending;
+        return Optional.ofNullable(slotPendingRequests[slotIndex])
+                .orElseGet(() -> {
+                    LinkedHashMap<UUID, Reservation> pending = new LinkedHashMap<>();
+                    slotPendingRequests[slotIndex] = pending;
+                    return pending;
+                });
     }
 
     /**
@@ -189,83 +190,96 @@ public class ReservationHandler {
         if (reservationObserver != null)
             reservationObserver.onSlotCapacitySet(attraction, dayOfYear, slotCapacity);
 
-        // Apply the reservation relocation algorithm to confirm the pending requests into the slots, or relocate.
+        int[] stats = processPendingReservations();
+        return new DefineSlotCapacityResult(stats[0], stats[1], stats[2]);
+    }
 
-        int bookingsConfirmed = 0;
-        int bookingsRelocated = 0;
-        int bookingsCancelled = 0;
-
-        int sortingTiebreaker = 0;
+    private int[] processPendingReservations() {
+        int[] stats = new int[3]; // [confirmed, relocated, cancelled]
+        final int[] sortingTiebreaker = {0};
         LocalDateTime dateTimeNow = LocalDateTime.now();
 
-        for (int slotIndex = 0; slotIndex < slotPendingRequests.length; slotIndex++) {
-            LinkedHashMap<UUID, Reservation> requests = slotPendingRequests[slotIndex];
-            if (requests == null || requests.isEmpty())
-                continue;
+        IntStream.range(0, slotPendingRequests.length)
+                .forEach(slotIndex -> {
+                    LinkedHashMap<UUID, Reservation> requests = slotPendingRequests[slotIndex];
+                    if (requests == null || requests.isEmpty())
+                        return;
 
-            Map<UUID, ConfirmedReservation> confirmed = getOrCreateSlotConfirmedRequests(slotIndex);
-            LocalTime slotIndexTime = getSlotTimeByIndex(slotIndex);
+                    Map<UUID, ConfirmedReservation> confirmed = getOrCreateSlotConfirmedRequests(slotIndex);
+                    LocalTime slotIndexTime = getSlotTimeByIndex(slotIndex);
 
-            // Dequeue the first N requests from the pending queue and confirm them (N = slotCapacity).
-            Iterator<Reservation> iterator = requests.values().iterator();
-            while (confirmed.size() < slotCapacity && iterator.hasNext()) {
-                Reservation next = iterator.next();
-                iterator.remove();
+                    // Collect reservations to process first
+                    List<Reservation> reservationsToProcess = requests.values().stream()
+                            .limit(Math.max(0, slotCapacity - confirmed.size()))
+                            .collect(Collectors.toList());
 
-                ConfirmedReservation confirmedReservation = new ConfirmedReservation(next, slotIndexTime, dateTimeNow, sortingTiebreaker++);
-                confirmed.put(next.getVisitorId(), confirmedReservation);
-                bookingsConfirmed++;
-                if (reservationObserver != null)
-                    reservationObserver.onConfirmed(confirmedReservation);
-            }
-        }
+                    // Process collected reservations
+                    reservationsToProcess.forEach(reservation -> {
+                        requests.remove(reservation.getVisitorId());
+                        ConfirmedReservation confirmedReservation = new ConfirmedReservation(
+                                reservation, slotIndexTime, dateTimeNow, sortingTiebreaker[0]++);
+                        confirmed.put(reservation.getVisitorId(), confirmedReservation);
+                        stats[0]++;
+                        if (reservationObserver != null)
+                            reservationObserver.onConfirmed(confirmedReservation);
+                    });
+                });
 
-        // Attempt to relocate forward all pending requests, traversing by slot chronologically.
-        for (int slotIndex = 0; slotIndex < slotPendingRequests.length; slotIndex++) {
-            LinkedHashMap<UUID, Reservation> requests = slotPendingRequests[slotIndex];
-            if (requests == null || requests.isEmpty())
-                continue;
+        IntStream.range(0, slotPendingRequests.length)
+                .forEach(slotIndex -> {
+                    LinkedHashMap<UUID, Reservation> requests = slotPendingRequests[slotIndex];
+                    if (requests == null || requests.isEmpty())
+                        return;
 
-            LocalTime slotIndexTime = getSlotTimeByIndex(slotIndex);
+                    LocalTime slotIndexTime = getSlotTimeByIndex(slotIndex);
+                    int amountToRelocate = Math.max(0, slotConfirmedRequests[slotIndex].size() + requests.size() - slotCapacity);
 
-            int amountToRelocate = slotConfirmedRequests[slotIndex].size() + requests.size() - slotCapacity;
-            Iterator<Reservation> requestsIterator = requests.values().iterator();
-            for (int i = 0; i < amountToRelocate; i++) {
-                Reservation reservationToRelocate = requestsIterator.next();
-                requestsIterator.remove();
+                    // Collect reservations to relocate first
+                    List<Reservation> reservationsToRelocate = requests.values().stream()
+                            .limit(amountToRelocate)
+                            .collect(Collectors.toList());
 
-                // Implementation note: When a ticket is attempted to be moved but the destination time slot is invalid
-                // due to the ticket type, no further time slots are attempted. If a new ticket type is implemented in
-                // the future where the valid time slots aren't contiguous, this algorithm will have to be adapted.
-                boolean relocated = false;
-                int relocateSlotIndex = slotIndex + 1;
-                while (!relocated && relocateSlotIndex < slotCount && reservationToRelocate.getTicket().getTicketType().isSlotTimeValid(getSlotTimeByIndex(relocateSlotIndex))) {
-                    Map<UUID, ConfirmedReservation> relocateSlotConfirmed = getOrCreateSlotConfirmedRequests(relocateSlotIndex);
-                    LinkedHashMap<UUID, Reservation> relocateSlotPending = slotPendingRequests[relocateSlotIndex];
-                    int relocateSlotTotal = relocateSlotConfirmed.size() + (relocateSlotPending == null ? 0 : relocateSlotPending.size());
+                    // Process collected reservations
+                    reservationsToRelocate.forEach(reservationToRelocate -> {
+                        requests.remove(reservationToRelocate.getVisitorId());
+                        boolean relocated = tryRelocateReservation(reservationToRelocate, slotIndex, slotIndexTime);
+                        if (relocated) {
+                            stats[1]++;
+                        } else {
+                            stats[2]++;
+                        }
+                    });
+                });
 
-                    if (relocateSlotTotal < slotCapacity) {
-                        relocateSlotPending = getOrCreateSlotPendingRequests(relocateSlotIndex);
-                        relocated = relocateSlotPending.putIfAbsent(reservationToRelocate.getVisitorId(), reservationToRelocate) == null;
+        return stats;
+    }
+
+    private boolean tryRelocateReservation(Reservation reservation, int currentSlotIndex, LocalTime currentSlotTime) {
+        return IntStream.range(currentSlotIndex + 1, slotCount)
+                .filter(nextSlotIndex -> reservation.getTicket().getTicketType()
+                        .isSlotTimeValid(getSlotTimeByIndex(nextSlotIndex)))
+                .filter(nextSlotIndex -> {
+                    Map<UUID, ConfirmedReservation> nextConfirmed = getOrCreateSlotConfirmedRequests(nextSlotIndex);
+                    LinkedHashMap<UUID, Reservation> nextPending = slotPendingRequests[nextSlotIndex];
+                    int nextTotal = nextConfirmed.size() + (nextPending == null ? 0 : nextPending.size());
+                    return nextTotal < slotCapacity;
+                })
+                .boxed()
+                .findFirst()
+                .map(nextSlotIndex -> {
+                    LinkedHashMap<UUID, Reservation> nextPending = getOrCreateSlotPendingRequests(nextSlotIndex);
+                    boolean success = nextPending.putIfAbsent(reservation.getVisitorId(), reservation) == null;
+                    if (success && reservationObserver != null) {
+                        reservationObserver.onRelocated(reservation, currentSlotTime, getSlotTimeByIndex(nextSlotIndex));
                     }
-
-                    if (!relocated)
-                        relocateSlotIndex++;
-                }
-
-                if (relocated) {
-                    if (reservationObserver != null)
-                        reservationObserver.onRelocated(reservationToRelocate, slotIndexTime, getSlotTimeByIndex(relocateSlotIndex));
-                    bookingsRelocated++;
-                } else {
-                    if (reservationObserver != null)
-                        reservationObserver.onCancelled(reservationToRelocate, slotIndexTime);
-                    bookingsCancelled++;
-                }
-            }
-        }
-
-        return new DefineSlotCapacityResult(bookingsConfirmed, bookingsRelocated, bookingsCancelled);
+                    return success;
+                })
+                .orElseGet(() -> {
+                    if (reservationObserver != null) {
+                        reservationObserver.onCancelled(reservation, currentSlotTime);
+                    }
+                    return false;
+                });
     }
 
     private void cancelPendingReservationsForSlotIfFull(int slotIndex) {
@@ -275,8 +289,7 @@ public class ReservationHandler {
         if (confirmed != null && confirmed.size() >= slotCapacity && pendings != null) {
             if (reservationObserver != null) {
                 LocalTime slotTime = getSlotTimeByIndex(slotIndex);
-                for (Reservation r : pendings.values())
-                    reservationObserver.onCancelled(r, slotTime);
+                pendings.values().forEach(r -> reservationObserver.onCancelled(r, slotTime));
             }
             pendings.clear();
         }
@@ -377,13 +390,11 @@ public class ReservationHandler {
     public synchronized void cancelReservation(UUID visitorId, LocalTime slotTime) {
         int slotIndex = getSlotIndexOrThrow(slotTime);
 
-        LinkedHashMap<UUID, Reservation> pendings = slotPendingRequests[slotIndex];
-        Reservation reservation = null;
-        if (pendings == null || (reservation = pendings.remove(visitorId)) == null) {
-            Map<UUID, ConfirmedReservation> confirmed = slotConfirmedRequests[slotIndex];
-            if (confirmed == null || (reservation = confirmed.remove(visitorId)) == null)
-                throw new ReservationNotFoundException();
-        }
+        Reservation reservation = Optional.ofNullable(slotPendingRequests[slotIndex])
+                .map(pendings -> pendings.remove(visitorId))
+                .orElseGet(() -> Optional.ofNullable(slotConfirmedRequests[slotIndex])
+                        .map(confirmed -> confirmed.remove(visitorId))
+                        .orElseThrow(ReservationNotFoundException::new));
 
         if (reservationObserver != null)
             reservationObserver.onCancelled(reservation, slotTime);
@@ -399,17 +410,17 @@ public class ReservationHandler {
         if (slotCapacity != -1 || slotCount == 0)
             return null;
 
-        // Find the slotIndex wih the maximum amount of pending reservations.
-        int indexOfMax = 0;
-        int maxPendingReservationCount = slotPendingRequests[0] == null ? 0 : slotPendingRequests[0].size();
-        for (int i = 1; i < slotPendingRequests.length; i++) {
-            if (slotPendingRequests[i] != null && slotPendingRequests[i].size() > maxPendingReservationCount) {
-                indexOfMax = i;
-                maxPendingReservationCount = slotPendingRequests[i].size();
-            }
-        }
-
-        return new SuggestedCapacityResult(attraction, maxPendingReservationCount, getSlotTimeByIndex(indexOfMax));
+        return IntStream.range(0, slotPendingRequests.length)
+                .mapToObj(i -> new AbstractMap.SimpleEntry<>(i, 
+                        Optional.ofNullable(slotPendingRequests[i])
+                                .map(LinkedHashMap::size)
+                                .orElse(0)))
+                .max(Map.Entry.comparingByValue())
+                .map(entry -> new SuggestedCapacityResult(
+                        attraction, 
+                        entry.getValue(), 
+                        getSlotTimeByIndex(entry.getKey())))
+                .orElse(null);
     }
 
 
@@ -446,16 +457,22 @@ public class ReservationHandler {
         int slotFromIndex = getClampedSlotIndex(slotFrom, true);
         int slotToIndex = slotTo == null ? slotFromIndex : getClampedSlotIndex(slotTo, false);
 
-        for (int slotIndex = slotFromIndex; slotIndex <= slotToIndex; slotIndex++) {
-            Map<UUID, ConfirmedReservation> confirmed = slotConfirmedRequests[slotIndex];
-            LinkedHashMap<UUID, Reservation> pendings = slotPendingRequests[slotIndex];
-            LocalTime slotTime = getSlotTimeByIndex(slotIndex);
+        IntStream.rangeClosed(slotFromIndex, slotToIndex)
+                .forEach(slotIndex -> {
+                    Map<UUID, ConfirmedReservation> confirmed = slotConfirmedRequests[slotIndex];
+                    LinkedHashMap<UUID, Reservation> pendings = slotPendingRequests[slotIndex];
+                    LocalTime slotTime = getSlotTimeByIndex(slotIndex);
 
-            int confirmedCount = confirmed == null ? 0 : confirmed.size();
-            int pendingCount = pendings == null ? 0 : pendings.size();
+                    int confirmedCount = confirmed == null ? 0 : confirmed.size();
+                    int pendingCount = pendings == null ? 0 : pendings.size();
 
-            resultCollection.add(new AttractionAvailabilityResult(this.attraction.getName(), slotTime, this.slotCapacity, confirmedCount, pendingCount));
-        }
+                    resultCollection.add(new AttractionAvailabilityResult(
+                            this.attraction.getName(), 
+                            slotTime, 
+                            this.slotCapacity, 
+                            confirmedCount, 
+                            pendingCount));
+                });
     }
 
     /**
@@ -464,10 +481,11 @@ public class ReservationHandler {
      * @param resultCollection The collection to which to add the resulting elements.
      */
     public synchronized void getConfirmedReservations(Collection<ConfirmedReservation> resultCollection) {
-        for (int slotIndex = 0; slotIndex < slotConfirmedRequests.length; slotIndex++) {
-            Map<UUID, ConfirmedReservation> confirmed = slotConfirmedRequests[slotIndex];
-            if (confirmed != null && !confirmed.isEmpty())
-                resultCollection.addAll(confirmed.values());
-        }
+        IntStream.range(0, slotConfirmedRequests.length)
+                .mapToObj(i -> slotConfirmedRequests[i])
+                .filter(Objects::nonNull)
+                .filter(map -> !map.isEmpty())
+                .map(Map::values)
+                .forEach(resultCollection::addAll);
     }
 }

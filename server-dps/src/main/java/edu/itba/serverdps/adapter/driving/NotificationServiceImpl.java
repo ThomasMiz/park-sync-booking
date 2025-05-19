@@ -35,7 +35,6 @@ public class NotificationServiceImpl extends AttractionNotificationServiceGrpc.A
         int dayOfYear = ParseUtils.checkValidDayOfYear(request.getDayOfYear());
 
         Attraction attraction = attractionHandler.getAttraction(attractionName);
-
         NotificationStreamObserverImpl notificationStream = new NotificationStreamObserverImpl(responseObserver);
         notificationRouterHandler.subscribe(notificationStream, attraction, visitorId, dayOfYear);
     }
@@ -47,8 +46,8 @@ public class NotificationServiceImpl extends AttractionNotificationServiceGrpc.A
         int dayOfYear = ParseUtils.checkValidDayOfYear(request.getDayOfYear());
 
         Attraction attraction = attractionHandler.getAttraction(attractionName);
-
         notificationRouterHandler.unsubscribe(attraction, visitorId, dayOfYear);
+        
         responseObserver.onNext(Empty.getDefaultInstance());
         responseObserver.onCompleted();
     }
@@ -63,14 +62,15 @@ public class NotificationServiceImpl extends AttractionNotificationServiceGrpc.A
 
         @Override
         public synchronized void onComplete() {
-            streamObserver.onCompleted();
-            completed = true;
+            if (!completed) {
+                streamObserver.onCompleted();
+                completed = true;
+            }
         }
 
         @Override
         public synchronized void onSlotCapacitySet(Attraction attraction, int dayOfYear, int slotCapacity) {
-            if (completed)
-                return;
+            if (completed) return;
 
             Notification notification = Notification.newBuilder()
                     .setType(NotificationType.NOTIFICATION_TYPE_BOOKING_SLOT_CAPACITY_SET)
@@ -82,11 +82,12 @@ public class NotificationServiceImpl extends AttractionNotificationServiceGrpc.A
 
         @Override
         public synchronized void onCreated(Reservation reservation, LocalTime slotTime, boolean isConfirmed) {
-            if (completed)
-                return;
+            if (completed) return;
 
             Notification notification = Notification.newBuilder()
-                    .setType(isConfirmed ? NotificationType.NOTIFICATION_TYPE_BOOKING_CREATED_CONFIRMED : NotificationType.NOTIFICATION_TYPE_BOOKING_CREATED_PENDING)
+                    .setType(isConfirmed ? 
+                            NotificationType.NOTIFICATION_TYPE_BOOKING_CREATED_CONFIRMED : 
+                            NotificationType.NOTIFICATION_TYPE_BOOKING_CREATED_PENDING)
                     .setSlotTime(ParseUtils.formatTime(slotTime))
                     .build();
 
@@ -95,8 +96,7 @@ public class NotificationServiceImpl extends AttractionNotificationServiceGrpc.A
 
         @Override
         public synchronized void onConfirmed(ConfirmedReservation reservation) {
-            if (completed)
-                return;
+            if (completed) return;
 
             Notification notification = Notification.newBuilder()
                     .setType(NotificationType.NOTIFICATION_TYPE_BOOKING_CONFIRMED)
@@ -108,8 +108,7 @@ public class NotificationServiceImpl extends AttractionNotificationServiceGrpc.A
 
         @Override
         public synchronized void onRelocated(Reservation reservation, LocalTime prevSlotTime, LocalTime newSlotTime) {
-            if (completed)
-                return;
+            if (completed) return;
 
             Notification notification = Notification.newBuilder()
                     .setType(NotificationType.NOTIFICATION_TYPE_BOOKING_RELOCATED)
@@ -122,8 +121,7 @@ public class NotificationServiceImpl extends AttractionNotificationServiceGrpc.A
 
         @Override
         public synchronized void onCancelled(Reservation reservation, LocalTime slotTime) {
-            if (completed)
-                return;
+            if (completed) return;
 
             Notification notification = Notification.newBuilder()
                     .setType(NotificationType.NOTIFICATION_TYPE_BOOKING_CANCELLED)

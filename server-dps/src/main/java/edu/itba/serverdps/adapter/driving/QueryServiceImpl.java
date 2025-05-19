@@ -21,16 +21,11 @@ public class QueryServiceImpl extends QueryServiceGrpc.QueryServiceImplBase {
     @Override
     public void getSuggestedCapacities(DayOfYearRequest request, StreamObserver<SuggestedCapacitiesResponse> responseObserver) {
         int dayOfYear = ParseUtils.checkValidDayOfYear(request.getDayOfYear());
+        SortedSet<SuggestedCapacityResult> results = attractionHandler.getSuggestedCapacities(dayOfYear);
 
         SuggestedCapacitiesResponse.Builder responseBuilder = SuggestedCapacitiesResponse.newBuilder();
-
-        SortedSet<SuggestedCapacityResult> results = attractionHandler.getSuggestedCapacities(dayOfYear);
         for (SuggestedCapacityResult result : results) {
-            responseBuilder.addSuggestedCapacity(SuggestedCapacity.newBuilder()
-                    .setAttractionName(result.attraction().getName())
-                    .setMaxPendingReservations(result.maxPendingReservationCount())
-                    .setSlotWithMaxReservations(ParseUtils.formatTime(result.slotTime()))
-                    .build());
+            responseBuilder.addSuggestedCapacity(buildSuggestedCapacityResponse(result));
         }
 
         responseObserver.onNext(responseBuilder.build());
@@ -40,20 +35,30 @@ public class QueryServiceImpl extends QueryServiceGrpc.QueryServiceImplBase {
     @Override
     public void getConfirmedReservations(DayOfYearRequest request, StreamObserver<ConfirmedReservationsResponse> responseObserver) {
         int dayOfYear = ParseUtils.checkValidDayOfYear(request.getDayOfYear());
+        SortedSet<ConfirmedReservation> results = attractionHandler.getConfirmedReservations(dayOfYear);
 
         ConfirmedReservationsResponse.Builder responseBuilder = ConfirmedReservationsResponse.newBuilder();
-
-        SortedSet<ConfirmedReservation> results = attractionHandler.getConfirmedReservations(dayOfYear);
         for (ConfirmedReservation result : results) {
-            responseBuilder.addConfirmedReservation(edu.itba.serverdps.port.driving.grpc.ConfirmedReservation.newBuilder()
-                    .setAttractionName(result.getAttraction().getName())
-                    .setVisitorId(result.getVisitorId().toString())
-                    .setSlot(ParseUtils.formatTime(result.getSlotTime()))
-                    .build()
-            );
+            responseBuilder.addConfirmedReservation(buildConfirmedReservationResponse(result));
         }
 
         responseObserver.onNext(responseBuilder.build());
         responseObserver.onCompleted();
+    }
+
+    private SuggestedCapacity buildSuggestedCapacityResponse(SuggestedCapacityResult result) {
+        return SuggestedCapacity.newBuilder()
+                .setAttractionName(result.attraction().getName())
+                .setMaxPendingReservations(result.maxPendingReservationCount())
+                .setSlotWithMaxReservations(ParseUtils.formatTime(result.slotTime()))
+                .build();
+    }
+
+    private edu.itba.serverdps.port.driving.grpc.ConfirmedReservation buildConfirmedReservationResponse(ConfirmedReservation result) {
+        return edu.itba.serverdps.port.driving.grpc.ConfirmedReservation.newBuilder()
+                .setAttractionName(result.getAttraction().getName())
+                .setVisitorId(result.getVisitorId().toString())
+                .setSlot(ParseUtils.formatTime(result.getSlotTime()))
+                .build();
     }
 }

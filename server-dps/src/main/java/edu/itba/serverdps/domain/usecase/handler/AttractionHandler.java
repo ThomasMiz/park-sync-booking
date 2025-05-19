@@ -21,10 +21,10 @@ import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 
 @Component
 public class AttractionHandler {
-
     private final ConcurrentMap<String, Attraction> attractions;
     private final ConcurrentMap<UUID, Ticket>[] ticketsByDay;
     private final ReservationObserver reservationObserver;
@@ -49,10 +49,8 @@ public class AttractionHandler {
     }
 
     private Ticket getTicketOrThrow(UUID visitorId, int dayOfYear) {
-        Ticket ticket = this.ticketsByDay[dayOfYear - 1].get(visitorId);
-        if (ticket == null)
-            throw new MissingPassException();
-        return ticket;
+        return Optional.ofNullable(this.ticketsByDay[dayOfYear - 1].get(visitorId))
+                .orElseThrow(MissingPassException::new);
     }
 
     /**
@@ -61,10 +59,8 @@ public class AttractionHandler {
      * @throws AttractionNotFoundException If no attraction is found with that name.
      */
     public Attraction getAttraction(String attractionName) {
-        Attraction attraction = this.attractions.get(attractionName);
-        if (attraction == null)
-            throw new AttractionNotFoundException();
-        return attraction;
+        return Optional.ofNullable(this.attractions.get(attractionName))
+                .orElseThrow(AttractionNotFoundException::new);
     }
 
     public void createAttraction(String attractionName, LocalTime openTime, LocalTime closeTime, int slotDuration) {
@@ -93,7 +89,6 @@ public class AttractionHandler {
     public MakeReservationResult makeReservation(String attractionName, UUID visitorId, int dayOfYear, LocalTime slotTime) {
         Attraction attraction = getAttraction(attractionName);
         Ticket ticket = getTicketOrThrow(visitorId, dayOfYear);
-
         return ticket.bookTransactional(slotTime, () -> attraction.makeReservation(ticket, slotTime));
     }
 
@@ -122,10 +117,14 @@ public class AttractionHandler {
      * @return A collection of AttractionAvailabilityResult with all the available slots for the attractions.
      */
     public Collection<AttractionAvailabilityResult> getAvailabilityForAllAttractions(int dayOfYear, LocalTime slotFrom, LocalTime slotTo) {
-        List<AttractionAvailabilityResult> resultList = new ArrayList<>();
-        for (Attraction attraction : attractions.values())
-            attraction.getAvailability(resultList, dayOfYear, slotFrom, slotTo);
-        return Collections.unmodifiableList(resultList);
+        return attractions.values().stream()
+                .map(attraction -> {
+                    List<AttractionAvailabilityResult> results = new ArrayList<>();
+                    attraction.getAvailability(results, dayOfYear, slotFrom, slotTo);
+                    return results;
+                })
+                .flatMap(Collection::stream)
+                .collect(Collectors.toUnmodifiableList());
     }
 
     /**
@@ -156,22 +155,20 @@ public class AttractionHandler {
     }
 
     public SortedSet<SuggestedCapacityResult> getSuggestedCapacities(int dayOfYear) {
-        SortedSet<SuggestedCapacityResult> results = new TreeSet<>(SuggestedCapacityResult::compareCapacityTo);
-        for (Attraction attraction : attractions.values()) {
-            SuggestedCapacityResult r = attraction.getSuggestedCapacity(dayOfYear);
-            if (r != null)
-                results.add(r);
-        }
-
-        return Collections.unmodifiableSortedSet(results);
+        return attractions.values().stream()
+                .map(attraction -> attraction.getSuggestedCapacity(dayOfYear))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(() -> new TreeSet<>(SuggestedCapacityResult::compareCapacityTo)));
     }
 
     public SortedSet<ConfirmedReservation> getConfirmedReservations(int dayOfYear) {
-        SortedSet<ConfirmedReservation> results = new TreeSet<>(ConfirmedReservation::compareByDateAndTiebreakerTo);
-
-        for (Attraction attraction : attractions.values())
-            attraction.getConfirmedReservations(results, dayOfYear);
-
-        return Collections.unmodifiableSortedSet(results);
+        return attractions.values().stream()
+                .map(attraction -> {
+                    SortedSet<ConfirmedReservation> results = new TreeSet<>(ConfirmedReservation::compareByDateAndTiebreakerTo);
+                    attraction.getConfirmedReservations(results, dayOfYear);
+                    return results;
+                })
+                .flatMap(Collection::stream)
+                .collect(Collectors.toCollection(() -> new TreeSet<>(ConfirmedReservation::compareByDateAndTiebreakerTo)));
     }
 }

@@ -30,11 +30,8 @@ public class AdminServiceImpl extends AdminServiceGrpc.AdminServiceImplBase {
         LocalTime closeTime = ParseUtils.parseTime(request.getClosingTime());
         int slotDuration = ParseUtils.checkValidDuration(request.getSlotDurationMinutes());
 
-        if (!openTime.isBefore(closeTime))
-            throw new InvalidOpeningAndClosingTimeException();
-
+        validateOpeningAndClosingTimes(openTime, closeTime);
         attractionHandler.createAttraction(attractionName, openTime, closeTime, slotDuration);
-
 
         responseObserver.onNext(Empty.getDefaultInstance());
         responseObserver.onCompleted();
@@ -43,8 +40,8 @@ public class AdminServiceImpl extends AdminServiceGrpc.AdminServiceImplBase {
     @Override
     public void addTicket(AddTicketRequest request, StreamObserver<Empty> responseObserver) {
         int dayOfYear = ParseUtils.checkValidDayOfYear(request.getDayOfYear());
-
-        TicketType ticketType = TicketType.fromPassType(request.getPassType()).orElseThrow(InvalidDayException::new);
+        TicketType ticketType = TicketType.fromPassType(request.getPassType())
+                .orElseThrow(InvalidDayException::new);
         UUID visitorId = ParseUtils.parseId(request.getVisitorId());
 
         attractionHandler.addTicket(visitorId, dayOfYear, ticketType);
@@ -58,7 +55,8 @@ public class AdminServiceImpl extends AdminServiceGrpc.AdminServiceImplBase {
         int dayOfYear = ParseUtils.checkValidDayOfYear(request.getDayOfYear());
         int capacity = ParseUtils.checkValidCapacity(request.getCapacity());
 
-        DefineSlotCapacityResult result = attractionHandler.setSlotCapacityForAttraction(attractionName, dayOfYear, capacity);
+        DefineSlotCapacityResult result = attractionHandler.setSlotCapacityForAttraction(
+                attractionName, dayOfYear, capacity);
 
         responseObserver.onNext(AddCapacityResponse.newBuilder()
                 .setCancelledBookings(result.bookingsCancelled())
@@ -66,5 +64,11 @@ public class AdminServiceImpl extends AdminServiceGrpc.AdminServiceImplBase {
                 .setRelocatedBookings(result.bookingsRelocated())
                 .build());
         responseObserver.onCompleted();
+    }
+
+    private void validateOpeningAndClosingTimes(LocalTime openTime, LocalTime closeTime) {
+        if (!openTime.isBefore(closeTime)) {
+            throw new InvalidOpeningAndClosingTimeException();
+        }
     }
 }

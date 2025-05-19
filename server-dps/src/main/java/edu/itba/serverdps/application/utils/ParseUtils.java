@@ -6,6 +6,7 @@ import lombok.experimental.UtilityClass;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Optional;
 import java.util.UUID;
 
 @UtilityClass
@@ -26,14 +27,12 @@ public final class ParseUtils {
         }
     }
 
-    /**
-     * Parses a "HH:mm" string into a LocalTime, or null if the given time is null or blank.
-     *
-     * @throws InvalidSlotException if the string is invalid.
-     */
-    public static LocalTime parseTimeOrNull(String time) {
+    public static Optional<LocalTime> parseTimeOptional(String time) {
+        if (time == null || time.isBlank()) {
+            return Optional.empty();
+        }
         try {
-            return time == null || time.isBlank() ? null : LocalTime.parse(time, slotTimeFormatter);
+            return Optional.of(LocalTime.parse(time, slotTimeFormatter));
         } catch (DateTimeParseException e) {
             throw new InvalidSlotException();
         }
@@ -43,11 +42,6 @@ public final class ParseUtils {
         return slotTimeFormatter.format(time);
     }
 
-    /**
-     * Parses a UUID from a string.
-     *
-     * @throws InvalidVisitorIdException if the string is invalid.
-     */
     public static UUID parseId(String id) {
         try {
             return UUID.fromString(id);
@@ -105,11 +99,12 @@ public final class ParseUtils {
     }
 
     /**
-     * Verifies that the given string is valid for an attraction name. Does not check that said attraction exists.
-     *
-     * @return The same value passed, or null if attractionName is blank.
+     * Parses an attraction name into an Optional<String>.
+     * Returns empty if the attraction name is null or blank.
      */
-    public static String checkAttractionNameOrNull(String attractionName) {
-        return (attractionName == null || attractionName.isBlank()) ? null : attractionName;
+    public static Optional<String> parseAttractionName(String attractionName) {
+        return (attractionName == null || attractionName.isBlank()) ? 
+                Optional.empty() : 
+                Optional.of(attractionName);
     }
 }
