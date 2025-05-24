@@ -1,8 +1,7 @@
-package edu.itba.serverdps;
+package edu.itba.serverdps.integration;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootTest(classes = edu.itba.serverdps.application.Application.class)
 class ApplicationTests {
