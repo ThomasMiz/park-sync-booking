@@ -862,7 +862,7 @@ public class BookingServiceImplTest {
 
         Map<UUID, ConfirmedReservation>[] confirmedReservations = new Map[TOTAL_SLOTS];
 
-        ConfirmedReservation reservation = new ConfirmedReservation(ticket, attraction, LocalTime.of(12, 30), LocalDateTime.of(2023, 6, 12, 16, 20), 5);
+        ConfirmedReservation reservation = new ConfirmedReservation(new Reservation(ticket, attraction), LocalTime.of(12, 30), LocalDateTime.of(2023, 6, 12, 16, 20), 5);
         confirmedReservations[0] = new ConcurrentHashMap<>();
         confirmedReservations[0].put(VISITOR_ID, reservation);
 

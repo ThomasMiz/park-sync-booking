@@ -9,19 +9,16 @@ import edu.itba.serverdps.domain.model.result.DefineSlotCapacityResult;
 import edu.itba.serverdps.application.utils.ParseUtils;
 import com.google.protobuf.Empty;
 import io.grpc.stub.StreamObserver;
+import lombok.RequiredArgsConstructor;
 import org.springframework.grpc.server.service.GrpcService;
 
 import java.time.LocalTime;
 import java.util.UUID;
 
 @GrpcService
+@RequiredArgsConstructor
 public class AdminServiceImpl extends AdminServiceGrpc.AdminServiceImplBase {
-
     private final AttractionHandler attractionHandler;
-
-    public AdminServiceImpl(AttractionHandler attractionHandler) {
-        this.attractionHandler = attractionHandler;
-    }
 
     @Override
     public void addAttraction(AddAttractionRequest request, StreamObserver<Empty> responseObserver) {

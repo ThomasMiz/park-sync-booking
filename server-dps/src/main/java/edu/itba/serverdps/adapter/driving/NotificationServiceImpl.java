@@ -13,20 +13,17 @@ import edu.itba.serverdps.domain.usecase.NotificationStreamObserver;
 import edu.itba.serverdps.application.utils.ParseUtils;
 import com.google.protobuf.Empty;
 import io.grpc.stub.StreamObserver;
+import lombok.RequiredArgsConstructor;
 import org.springframework.grpc.server.service.GrpcService;
 
 import java.time.LocalTime;
 import java.util.UUID;
 
 @GrpcService
+@RequiredArgsConstructor
 public class NotificationServiceImpl extends AttractionNotificationServiceGrpc.AttractionNotificationServiceImplBase {
     private final AttractionHandler attractionHandler;
     private final NotificationRouterHandler notificationRouterHandler;
-
-    public NotificationServiceImpl(AttractionHandler attractionHandler, NotificationRouterHandler notificationRouterHandler) {
-        this.attractionHandler = attractionHandler;
-        this.notificationRouterHandler = notificationRouterHandler;
-    }
 
     @Override
     public void follow(NotificationRequest request, StreamObserver<Notification> responseObserver) {
@@ -62,10 +59,10 @@ public class NotificationServiceImpl extends AttractionNotificationServiceGrpc.A
 
         @Override
         public synchronized void onComplete() {
-            if (!completed) {
-                streamObserver.onCompleted();
-                completed = true;
-            }
+            if (completed) return;
+
+            streamObserver.onCompleted();
+            completed = true;
         }
 
         @Override

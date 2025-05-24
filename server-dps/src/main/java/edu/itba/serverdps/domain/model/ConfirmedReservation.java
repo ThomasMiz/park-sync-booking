@@ -6,24 +6,16 @@ import java.util.UUID;
 
 public record ConfirmedReservation(
         Reservation reservation,
-        LocalDateTime dateConfirmed,
         LocalTime slotTime,
+        LocalDateTime dateConfirmed,
         int sortingTiebreaker
 ) {
-    public ConfirmedReservation(Ticket ticket, Attraction attraction, LocalTime slotTime, LocalDateTime dateConfirmed, int sortingTiebreaker) {
-        this(new Reservation(ticket, attraction), dateConfirmed, slotTime, sortingTiebreaker);
-    }
-
-    public ConfirmedReservation(Reservation reservation, LocalTime slotTime, LocalDateTime dateConfirmed, int sortingTiebreaker) {
-        this(reservation.ticket(), reservation.attraction(), slotTime, dateConfirmed, sortingTiebreaker);
-    }
-
     public ConfirmedReservation(Reservation reservation, LocalTime slotTime) {
-        this(reservation.ticket(), reservation.attraction(), slotTime, LocalDateTime.now(), 0);
+        this(reservation, slotTime, LocalDateTime.now(), 0);
     }
 
     public ConfirmedReservation(Ticket ticket, Attraction attraction, LocalTime slotTime) {
-        this(ticket, attraction, slotTime, LocalDateTime.now(), 0);
+        this(new Reservation(ticket, attraction), slotTime, LocalDateTime.now(), 0);
     }
 
     public int compareByDateAndTiebreakerTo(ConfirmedReservation other) {

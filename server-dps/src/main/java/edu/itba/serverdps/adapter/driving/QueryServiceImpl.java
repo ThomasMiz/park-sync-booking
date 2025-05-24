@@ -6,17 +6,15 @@ import edu.itba.serverdps.domain.model.ConfirmedReservation;
 import edu.itba.serverdps.domain.model.result.SuggestedCapacityResult;
 import edu.itba.serverdps.application.utils.ParseUtils;
 import io.grpc.stub.StreamObserver;
+import lombok.RequiredArgsConstructor;
 import org.springframework.grpc.server.service.GrpcService;
 
 import java.util.SortedSet;
 
 @GrpcService
+@RequiredArgsConstructor
 public class QueryServiceImpl extends QueryServiceGrpc.QueryServiceImplBase {
     private final AttractionHandler attractionHandler;
-
-    public QueryServiceImpl(AttractionHandler attractionHandler) {
-        this.attractionHandler = attractionHandler;
-    }
 
     @Override
     public void getSuggestedCapacities(DayOfYearRequest request, StreamObserver<SuggestedCapacitiesResponse> responseObserver) {

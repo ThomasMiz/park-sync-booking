@@ -10,6 +10,7 @@ import edu.itba.serverdps.domain.model.result.MakeReservationResult;
 import edu.itba.serverdps.application.utils.ParseUtils;
 import com.google.protobuf.Empty;
 import io.grpc.stub.StreamObserver;
+import lombok.RequiredArgsConstructor;
 import org.springframework.grpc.server.service.GrpcService;
 
 import java.time.LocalTime;
@@ -19,13 +20,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @GrpcService
+@RequiredArgsConstructor
 public class BookingServiceImpl extends BookingServiceGrpc.BookingServiceImplBase {
-
     private final AttractionHandler attractionHandler;
-
-    public BookingServiceImpl(AttractionHandler attractionHandler) {
-        this.attractionHandler = attractionHandler;
-    }
 
     @Override
     public void getAttractions(Empty request, StreamObserver<GetAttractionsResponse> responseObserver) {
