@@ -88,31 +88,6 @@ public class ReservationHandler {
         this.slotPendingRequests = (LinkedHashMap<UUID, Reservation>[]) new LinkedHashMap[slotCount];
     }
 
-    /**
-     * Creates a new ReservationHandler for the given attraction and day of year, and includes the internal confirmed
-     * and pending data structures.
-     * THIS CONSTRUCTOR IS INTENDED ONLY FOR TESTING. Use the other constructor for everything else.
-     */
-    public ReservationHandler(Attraction attraction, int dayOfYear, ReservationObserver reservationObserver, int slotCapacity, Map<UUID, ConfirmedReservation>[] slotConfirmedRequests, LinkedHashMap<UUID, Reservation>[] slotPendingRequests) {
-        this.attraction = Objects.requireNonNull(attraction);
-        this.dayOfYear = dayOfYear;
-        this.slotCapacity = slotCapacity;
-        this.reservationObserver = reservationObserver;
-
-        LocalTime openingTime = attraction.openingTime();
-        LocalTime closingTime = attraction.closingTime();
-        int slotDuration = attraction.slotDuration();
-        this.firstSlotMinuteOfDay = openingTime.getMinute() + openingTime.getHour() * 60;
-
-        // slotCount is calculated as: slotCount = ceiling(totalMinutesOpen / slotDuration)
-        int closingTimeMinuteOfDay = closingTime.getMinute() + closingTime.getHour() * 60;
-        this.slotCount = (closingTimeMinuteOfDay - firstSlotMinuteOfDay + slotDuration - 1) / (slotDuration);
-        if (this.slotCount <= 0)
-            throw new IllegalArgumentException("The attraction must have at least one time slot");
-
-        this.slotConfirmedRequests = slotConfirmedRequests;
-        this.slotPendingRequests = slotPendingRequests;
-    }
 
     private Map<UUID, ConfirmedReservation> getOrCreateSlotConfirmedRequests(int slotIndex) {
         return Optional.ofNullable(slotConfirmedRequests[slotIndex])
@@ -485,5 +460,120 @@ public class ReservationHandler {
                 .filter(map -> !map.isEmpty())
                 .map(Map::values)
                 .forEach(resultCollection::addAll);
+    }
+
+    /**
+     * Gets all the pending reservations.
+     *
+     * @param resultCollection The collection to which to add the resulting elements.
+     */
+    public synchronized void getPendingReservations(Collection<Reservation> resultCollection) {
+        IntStream.range(0, slotPendingRequests.length)
+                .mapToObj(i -> slotPendingRequests[i])
+                .filter(Objects::nonNull)
+                .filter(map -> !map.isEmpty())
+                .map(Map::values)
+                .forEach(resultCollection::addAll);
+    }
+
+    /**
+     * Gets the pending reservation for the given visitor and time slot.
+     *
+     * @param visitorId The visitor ID.
+     * @param slotTime The time slot.
+     * @return The pending reservation, or null if none exists.
+     * @throws InvalidSlotException when the slot doesn't exist
+     */
+    public synchronized Reservation getPendingReservation(UUID visitorId, LocalTime slotTime) {
+        int slotIndex = getSlotIndexOrThrow(slotTime);
+
+        return slotPendingRequests[slotIndex] != null ? slotPendingRequests[slotIndex].get(visitorId) : null;
+    }
+
+    /**
+     * Gets the confirmed reservation for the given visitor and time slot.
+     *
+     * @param visitorId The visitor ID.
+     * @param slotTime The time slot.
+     * @return The confirmed reservation, or null if none exists.
+     * @throws InvalidSlotException when the slot doesn't exist
+     */
+    public synchronized ConfirmedReservation getConfirmedReservation(UUID visitorId, LocalTime slotTime) {
+        int slotIndex = getSlotIndexOrThrow(slotTime);
+
+        return slotConfirmedRequests[slotIndex] != null ? slotConfirmedRequests[slotIndex].get(visitorId) : null;
+    }
+
+    /**
+     * Checks if a reservation exists for the given visitor and time slot.
+     *
+     * @param visitorId The visitor ID.
+     * @param slotTime The time slot.
+     * @return true if a reservation exists (either pending or confirmed), false otherwise.
+     * @throws InvalidSlotException when the slot doesn't exist
+     */
+    public synchronized boolean hasReservation(UUID visitorId, LocalTime slotTime) {
+        int slotIndex = getSlotIndexOrThrow(slotTime);
+
+        return (slotPendingRequests[slotIndex] != null && slotPendingRequests[slotIndex].containsKey(visitorId)) ||
+               (slotConfirmedRequests[slotIndex] != null && slotConfirmedRequests[slotIndex].containsKey(visitorId));
+    }
+
+    /**
+     * Checks if a confirmed reservation exists for the given visitor and time slot.
+     *
+     * @param visitorId The visitor ID.
+     * @param slotTime The time slot.
+     * @return true if a confirmed reservation exists, false otherwise.
+     * @throws InvalidSlotException when the slot doesn't exist
+     */
+    public synchronized boolean hasConfirmedReservation(UUID visitorId, LocalTime slotTime) {
+        int slotIndex = getSlotIndexOrThrow(slotTime);
+
+        return slotConfirmedRequests[slotIndex] != null && slotConfirmedRequests[slotIndex].containsKey(visitorId);
+    }
+
+    /**
+     * Checks if a pending reservation exists for the given visitor and time slot.
+     *
+     * @param visitorId The visitor ID.
+     * @param slotTime The time slot.
+     * @return true if a pending reservation exists, false otherwise.
+     * @throws InvalidSlotException when the slot doesn't exist
+     */
+    public synchronized boolean hasPendingReservation(UUID visitorId, LocalTime slotTime) {
+        int slotIndex = getSlotIndexOrThrow(slotTime);
+
+        return slotPendingRequests[slotIndex] != null && slotPendingRequests[slotIndex].containsKey(visitorId);
+    }
+
+    /**
+     * Adds a pending reservation for testing purposes.
+     *
+     * @param visitorId The visitor ID.
+     * @param slotTime The time slot.
+     * @param reservation The reservation to add.
+     * @throws InvalidSlotException when the slot doesn't exist
+     */
+    public synchronized void addPendingReservationForTesting(UUID visitorId, LocalTime slotTime, Reservation reservation) {
+        int slotIndex = getSlotIndexOrThrow(slotTime);
+
+        LinkedHashMap<UUID, Reservation> pendings = getOrCreateSlotPendingRequests(slotIndex);
+        pendings.put(visitorId, reservation);
+    }
+
+    /**
+     * Adds a confirmed reservation for testing purposes.
+     *
+     * @param visitorId The visitor ID.
+     * @param slotTime The time slot.
+     * @param reservation The reservation to add.
+     * @throws InvalidSlotException when the slot doesn't exist
+     */
+    public synchronized void addConfirmedReservationForTesting(UUID visitorId, LocalTime slotTime, ConfirmedReservation reservation) {
+        int slotIndex = getSlotIndexOrThrow(slotTime);
+
+        Map<UUID, ConfirmedReservation> confirmed = getOrCreateSlotConfirmedRequests(slotIndex);
+        confirmed.put(visitorId, reservation);
     }
 }

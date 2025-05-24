@@ -54,14 +54,12 @@ public class ReservationHandlerTest {
     private final static Ticket TICKET1 = new Ticket(USER1, DAY_OF_YEAR, TicketType.HALF_DAY);
 
     private final static Ticket TICKET2 = new Ticket(USER2, DAY_OF_YEAR, TicketType.FULL_DAY);
-    private final Map<UUID, ConfirmedReservation>[] slotConfirmedRequests1 = new Map[VALID_TIME_SLOTS1.length];
-    private final LinkedHashMap<UUID, Reservation>[] slotPendingRequests1 = new LinkedHashMap[VALID_TIME_SLOTS1.length];
-    private final Map<UUID, ConfirmedReservation>[] slotConfirmedRequests2 = new Map[VALID_TIME_SLOTS2.length];
-    private final LinkedHashMap<UUID, Reservation>[] slotPendingRequests2 = new LinkedHashMap[VALID_TIME_SLOTS2.length];
+
     @Mock
     private Attraction attraction1;
     @Mock
     private Attraction attraction2;
+
     private ReservationHandler reservationHandler1;
     private ReservationHandler reservationHandler2;
 
@@ -71,13 +69,14 @@ public class ReservationHandlerTest {
         when(attraction1.openingTime()).thenReturn(ATTRACTION_OPENING_TIME1);
         when(attraction1.closingTime()).thenReturn(ATTRACTION_CLOSING_TIME1);
         when(attraction1.slotDuration()).thenReturn(ATTRACTION_SLOT_DURATION1);
-        reservationHandler1 = new ReservationHandler(attraction1, DAY_OF_YEAR, null, -1, slotConfirmedRequests1, slotPendingRequests1);
+        reservationHandler1 = new ReservationHandler(attraction1, DAY_OF_YEAR, null);
 
         // when(attraction2.getName()).thenReturn(ATTRACTION_NAME2);
         when(attraction2.openingTime()).thenReturn(ATTRACTION_OPENING_TIME2);
         when(attraction2.closingTime()).thenReturn(ATTRACTION_CLOSING_TIME2);
         when(attraction2.slotDuration()).thenReturn(ATTRACTION_SLOT_DURATION2);
-        reservationHandler2 = new ReservationHandler(attraction2, DAY_OF_YEAR, null, ATTRACTION_SLOT_CAPACITY2, slotConfirmedRequests2, slotPendingRequests2);
+        reservationHandler2 = new ReservationHandler(attraction2, DAY_OF_YEAR, null);
+        reservationHandler2.defineSlotCapacity(ATTRACTION_SLOT_CAPACITY2);
     }
 
     @Test
@@ -133,23 +132,22 @@ public class ReservationHandlerTest {
         assertEquals(attraction1, result.reservation().attraction());
         assertEquals(DAY_OF_YEAR, result.reservation().dayOfYear());
         assertEquals(TICKET1, result.reservation().ticket());
-        assertTrue(slotConfirmedRequests1[3] == null || slotConfirmedRequests1[3].isEmpty());
-        assertEquals(slotPendingRequests1[3].get(TICKET1.visitorId()), result.reservation());
+        assertFalse(reservationHandler1.hasConfirmedReservation(TICKET1.visitorId(), VALID_TIME_SLOTS1[3]));
+        assertEquals(reservationHandler1.getPendingReservation(TICKET1.visitorId(), VALID_TIME_SLOTS1[3]), result.reservation());
     }
 
     @Test
     public void testMakeReservationSlotCapacityUndefinedExisting() {
-        slotPendingRequests1[3] = new LinkedHashMap<>();
         Reservation existingReservation = new Reservation(TICKET1, attraction1);
-        slotPendingRequests1[3].put(TICKET1.visitorId(), existingReservation);
+        reservationHandler1.addPendingReservationForTesting(TICKET1.visitorId(), VALID_TIME_SLOTS1[3], existingReservation);
 
         assertThrows(
                 ReservationAlreadyExistsException.class,
                 () -> reservationHandler1.makeReservation(TICKET1, VALID_TIME_SLOTS1[3])
         );
 
-        assertTrue(slotConfirmedRequests1[3] == null || slotConfirmedRequests1[3].isEmpty());
-        assertSame(existingReservation, slotPendingRequests1[3].get(TICKET1.visitorId()));
+        assertFalse(reservationHandler1.hasConfirmedReservation(TICKET1.visitorId(), VALID_TIME_SLOTS1[3]));
+        assertSame(existingReservation, reservationHandler1.getPendingReservation(TICKET1.visitorId(), VALID_TIME_SLOTS1[3]));
     }
 
     @Test
@@ -160,38 +158,36 @@ public class ReservationHandlerTest {
         assertEquals(attraction2, result.reservation().attraction());
         assertEquals(DAY_OF_YEAR, result.reservation().dayOfYear());
         assertEquals(TICKET2, result.reservation().ticket());
-        assertTrue(slotPendingRequests2[3] == null || slotPendingRequests2[3].isEmpty());
-        assertEquals(slotConfirmedRequests2[3].get(TICKET2.visitorId()).reservation(), result.reservation());
+        assertFalse(reservationHandler2.hasPendingReservation(TICKET2.visitorId(), VALID_TIME_SLOTS2[3]));
+        assertEquals(reservationHandler2.getConfirmedReservation(TICKET2.visitorId(), VALID_TIME_SLOTS2[3]).reservation(), result.reservation());
     }
 
     @Test
     public void testMakeReservationSlotCapacityDefinedExistingPending() {
-        slotPendingRequests2[3] = new LinkedHashMap<>();
         Reservation existingReservation = new Reservation(TICKET2, attraction2);
-        slotPendingRequests2[3].put(TICKET2.visitorId(), existingReservation);
+        reservationHandler2.addPendingReservationForTesting(TICKET2.visitorId(), VALID_TIME_SLOTS2[3], existingReservation);
 
         assertThrows(
                 ReservationAlreadyExistsException.class,
                 () -> reservationHandler2.makeReservation(TICKET2, VALID_TIME_SLOTS2[3])
         );
 
-        assertTrue(slotConfirmedRequests2[3] == null || slotConfirmedRequests2[3].isEmpty());
-        assertSame(existingReservation, slotPendingRequests2[3].get(TICKET2.visitorId()));
+        assertFalse(reservationHandler2.hasConfirmedReservation(TICKET2.visitorId(), VALID_TIME_SLOTS2[3]));
+        assertSame(existingReservation, reservationHandler2.getPendingReservation(TICKET2.visitorId(), VALID_TIME_SLOTS2[3]));
     }
 
     @Test
     public void testMakeReservationSlotCapacityDefinedExistingConfirmed() {
-        slotConfirmedRequests2[3] = new HashMap<>();
         ConfirmedReservation existingReservation = new ConfirmedReservation(TICKET2, attraction2, VALID_TIME_SLOTS2[3]);
-        slotConfirmedRequests2[3].put(TICKET2.visitorId(), existingReservation);
+        reservationHandler2.addConfirmedReservationForTesting(TICKET2.visitorId(), VALID_TIME_SLOTS2[3], existingReservation);
 
         assertThrows(
                 ReservationAlreadyExistsException.class,
                 () -> reservationHandler2.makeReservation(TICKET2, VALID_TIME_SLOTS2[3])
         );
 
-        assertTrue(slotPendingRequests2[3] == null || slotPendingRequests2[3].isEmpty());
-        assertSame(existingReservation, slotConfirmedRequests2[3].get(TICKET2.visitorId()));
+        assertFalse(reservationHandler2.hasPendingReservation(TICKET2.visitorId(), VALID_TIME_SLOTS2[3]));
+        assertSame(existingReservation, reservationHandler2.getConfirmedReservation(TICKET2.visitorId(), VALID_TIME_SLOTS2[3]));
     }
 
     @Test(expected = CapacityNotDefinedException.class)
@@ -201,15 +197,15 @@ public class ReservationHandlerTest {
 
     @Test
     public void testConfirmReservationWhenPending() {
-        slotPendingRequests2[3] = new LinkedHashMap<>();
         Reservation existingReservation = new Reservation(TICKET2, attraction2);
-        slotPendingRequests2[3].put(TICKET2.visitorId(), existingReservation);
+        reservationHandler2.addPendingReservationForTesting(TICKET2.visitorId(), VALID_TIME_SLOTS2[3], existingReservation);
 
         reservationHandler2.confirmReservation(TICKET2.visitorId(), VALID_TIME_SLOTS2[3]);
 
-        assertTrue(slotPendingRequests2[3] == null || slotPendingRequests2[3].isEmpty());
-        assertSame(existingReservation.ticket(), slotConfirmedRequests2[3].get(TICKET2.visitorId()).ticket());
-        assertSame(existingReservation.attraction(), slotConfirmedRequests2[3].get(TICKET2.visitorId()).attraction());
+        assertFalse(reservationHandler2.hasPendingReservation(TICKET2.visitorId(), VALID_TIME_SLOTS2[3]));
+        ConfirmedReservation confirmedReservation = reservationHandler2.getConfirmedReservation(TICKET2.visitorId(), VALID_TIME_SLOTS2[3]);
+        assertSame(existingReservation.ticket(), confirmedReservation.ticket());
+        assertSame(existingReservation.attraction(), confirmedReservation.attraction());
     }
 
     @Test(expected = ReservationNotFoundException.class)
@@ -219,23 +215,21 @@ public class ReservationHandlerTest {
 
     @Test(expected = ReservationAlreadyConfirmedException.class)
     public void testConfirmReservationWhenAlreadyConfirmed() {
-        slotConfirmedRequests2[3] = new HashMap<>();
         ConfirmedReservation existingReservation = new ConfirmedReservation(TICKET2, attraction2, VALID_TIME_SLOTS2[3]);
-        slotConfirmedRequests2[3].put(TICKET2.visitorId(), existingReservation);
+        reservationHandler2.addConfirmedReservationForTesting(TICKET2.visitorId(), VALID_TIME_SLOTS2[3], existingReservation);
 
         reservationHandler2.confirmReservation(TICKET2.visitorId(), VALID_TIME_SLOTS2[3]);
     }
 
     @Test
     public void testCancelReservationWhenPending() {
-        slotPendingRequests2[3] = new LinkedHashMap<>();
         Reservation existingReservation = new Reservation(TICKET2, attraction2);
-        slotPendingRequests2[3].put(TICKET2.visitorId(), existingReservation);
+        reservationHandler2.addPendingReservationForTesting(TICKET2.visitorId(), VALID_TIME_SLOTS2[3], existingReservation);
 
         reservationHandler2.cancelReservation(TICKET2.visitorId(), VALID_TIME_SLOTS2[3]);
 
-        assertTrue(slotPendingRequests2[3] == null || slotPendingRequests2[3].isEmpty());
-        assertTrue(slotConfirmedRequests2[3] == null || slotConfirmedRequests2[3].isEmpty());
+        assertFalse(reservationHandler2.hasPendingReservation(TICKET2.visitorId(), VALID_TIME_SLOTS2[3]));
+        assertFalse(reservationHandler2.hasConfirmedReservation(TICKET2.visitorId(), VALID_TIME_SLOTS2[3]));
     }
 
     @Test(expected = ReservationNotFoundException.class)
@@ -245,14 +239,13 @@ public class ReservationHandlerTest {
 
     @Test
     public void testCancelReservationWhenConfirmed() {
-        slotConfirmedRequests1[3] = new HashMap<>();
-        ConfirmedReservation existingReservation = new ConfirmedReservation(TICKET1, attraction1, VALID_TIME_SLOTS2[3]);
-        slotConfirmedRequests1[3].put(TICKET1.visitorId(), existingReservation);
+        ConfirmedReservation existingReservation = new ConfirmedReservation(TICKET1, attraction1, VALID_TIME_SLOTS1[3]);
+        reservationHandler1.addConfirmedReservationForTesting(TICKET1.visitorId(), VALID_TIME_SLOTS1[3], existingReservation);
 
         reservationHandler1.cancelReservation(TICKET1.visitorId(), VALID_TIME_SLOTS1[3]);
 
-        assertTrue(slotPendingRequests1[3] == null || slotPendingRequests1[3].isEmpty());
-        assertTrue(slotConfirmedRequests1[3] == null || slotConfirmedRequests1[3].isEmpty());
+        assertFalse(reservationHandler1.hasPendingReservation(TICKET1.visitorId(), VALID_TIME_SLOTS1[3]));
+        assertFalse(reservationHandler1.hasConfirmedReservation(TICKET1.visitorId(), VALID_TIME_SLOTS1[3]));
     }
 
     @Test
@@ -264,28 +257,55 @@ public class ReservationHandlerTest {
     }
 
     private ReservationHandler createReservationHandlerWithPendingRequests(List<Integer> pendingReservationsPerSlot) {
+        ReservationHandler handler = new ReservationHandler(attraction1, DAY_OF_YEAR, null);
+
         long user = 99999999;
-        for (int i = 0; i < slotPendingRequests1.length && i < pendingReservationsPerSlot.size(); ++i) {
-            slotPendingRequests1[i] = new LinkedHashMap<>();
+        for (int i = 0; i < VALID_TIME_SLOTS1.length && i < pendingReservationsPerSlot.size(); ++i) {
+            LocalTime slotTime = VALID_TIME_SLOTS1[i];
 
             for (int j = 0; j < pendingReservationsPerSlot.get(i); j++) {
                 UUID uuid = UUID.fromString(user-- + "-7dec-11d0-a765-00a0c91e6bf6");
-                slotPendingRequests1[i].put(uuid, new Reservation(new Ticket(uuid, DAY_OF_YEAR, TicketType.FULL_DAY), attraction1));
+                Ticket ticket = new Ticket(uuid, DAY_OF_YEAR, TicketType.FULL_DAY);
+                Reservation reservation = new Reservation(ticket, attraction1);
+                handler.addPendingReservationForTesting(uuid, slotTime, reservation);
             }
         }
-        return new ReservationHandler(attraction1, DAY_OF_YEAR, null, -1, slotConfirmedRequests1, slotPendingRequests1);
+        return handler;
     }
 
-    private void checkConsistentState(Map<UUID, ConfirmedReservation>[] confirmed, LinkedHashMap<UUID, Reservation>[] pending, List<Integer> originalPendingNumbers, int capacity) {
-        for (int i = 0; i < confirmed.length; ++i) {
-            Map<UUID, ConfirmedReservation> currentConfirmed = confirmed[i];
+    private void checkConsistentState(ReservationHandler handler, List<Integer> originalPendingNumbers, int capacity) {
+        List<ConfirmedReservation> confirmedReservations = new ArrayList<>();
+        handler.getConfirmedReservations(confirmedReservations);
 
-            // Expected confirmed bookings
-            int expectedSizeConfirmation = originalPendingNumbers.get(i) > capacity ? capacity : originalPendingNumbers.get(i);
-            assertEquals(expectedSizeConfirmation, currentConfirmed.size());
+        List<Reservation> pendingReservations = new ArrayList<>();
+        handler.getPendingReservations(pendingReservations);
 
-            LinkedHashMap<UUID, Reservation> currentPendingList = pending[i];
-            assertTrue(expectedSizeConfirmation + currentPendingList.size() <= capacity);
+        // Count confirmed and pending reservations per slot
+        Map<LocalTime, Integer> confirmedPerSlot = new HashMap<>();
+        for (ConfirmedReservation reservation : confirmedReservations) {
+            confirmedPerSlot.put(reservation.slotTime(), confirmedPerSlot.getOrDefault(reservation.slotTime(), 0) + 1);
+        }
+
+        Map<LocalTime, Integer> pendingPerSlot = new HashMap<>();
+        for (Reservation reservation : pendingReservations) {
+            // We don't have the slot time in the Reservation object, so we need to check all slots
+            for (LocalTime slotTime : VALID_TIME_SLOTS1) {
+                if (handler.hasPendingReservation(reservation.visitorId(), slotTime)) {
+                    pendingPerSlot.put(slotTime, pendingPerSlot.getOrDefault(slotTime, 0) + 1);
+                    break;
+                }
+            }
+        }
+
+        // Check that the number of confirmed reservations per slot is as expected
+        for (int i = 0; i < VALID_TIME_SLOTS1.length && i < originalPendingNumbers.size(); ++i) {
+            LocalTime slotTime = VALID_TIME_SLOTS1[i];
+            int expectedConfirmed = originalPendingNumbers.get(i) > capacity ? capacity : originalPendingNumbers.get(i);
+            int actualConfirmed = confirmedPerSlot.getOrDefault(slotTime, 0);
+            assertEquals("Slot " + i + " (" + slotTime + ") has wrong number of confirmed reservations", expectedConfirmed, actualConfirmed);
+
+            int actualPending = pendingPerSlot.getOrDefault(slotTime, 0);
+            assertTrue("Slot " + i + " (" + slotTime + ") has too many reservations", expectedConfirmed + actualPending <= capacity);
         }
     }
 
@@ -337,7 +357,7 @@ public class ReservationHandlerTest {
         assertEquals(pendingReservations.stream().mapToInt(Integer::intValue).sum(), result.bookingsConfirmed());
         assertEquals(0, result.bookingsRelocated());
         assertEquals(0, result.bookingsCancelled());
-        checkConsistentState(slotConfirmedRequests1, slotPendingRequests1, pendingReservations, capacity);
+        checkConsistentState(reservationHandler, pendingReservations, capacity);
     }
 
     @Test
@@ -352,7 +372,7 @@ public class ReservationHandlerTest {
         assertEquals(pendingReservations.stream().mapToInt((num) -> num < capacity ? num : capacity).sum(), result.bookingsConfirmed());
         assertEquals(pendingReservations.stream().mapToInt((num) -> num < capacity ? 0 : (num - capacity)).sum(), result.bookingsRelocated());
         assertEquals(0, result.bookingsCancelled());
-        checkConsistentState(slotConfirmedRequests1, slotPendingRequests1, pendingReservations, capacity);
+        checkConsistentState(reservationHandler, pendingReservations, capacity);
     }
 
     @Test
@@ -367,7 +387,7 @@ public class ReservationHandlerTest {
         assertEquals(10, result.bookingsConfirmed());
         assertEquals(70, result.bookingsRelocated());
         assertEquals(0, result.bookingsCancelled());
-        checkConsistentState(slotConfirmedRequests1, slotPendingRequests1, pendingReservations, capacity);
+        checkConsistentState(reservationHandler, pendingReservations, capacity);
     }
 
     @Test
@@ -382,7 +402,7 @@ public class ReservationHandlerTest {
         assertEquals(10, result.bookingsConfirmed());
         assertEquals(70, result.bookingsRelocated());
         assertEquals(1, result.bookingsCancelled());
-        checkConsistentState(slotConfirmedRequests1, slotPendingRequests1, pendingReservations, capacity);
+        checkConsistentState(reservationHandler, pendingReservations, capacity);
     }
 
     @Test
@@ -398,7 +418,7 @@ public class ReservationHandlerTest {
         int cancelled = pendingReservations.stream().mapToInt(Integer::intValue).sum() - capacity * 8;
         assertEquals(cancelled, result.bookingsCancelled());
         assertEquals(pendingReservations.stream().mapToInt((num) -> num < capacity ? 0 : (num - capacity)).sum() - cancelled, result.bookingsRelocated());
-        checkConsistentState(slotConfirmedRequests1, slotPendingRequests1, pendingReservations, capacity);
+        checkConsistentState(reservationHandler, pendingReservations, capacity);
     }
 
     @Test
@@ -414,6 +434,6 @@ public class ReservationHandlerTest {
         int cancelled = pendingReservations.stream().mapToInt(Integer::intValue).sum() - capacity * 8;
         assertEquals(cancelled, result.bookingsCancelled());
         assertEquals(pendingReservations.stream().mapToInt((num) -> num < capacity ? 0 : (num - capacity)).sum() - cancelled, result.bookingsRelocated());
-        checkConsistentState(slotConfirmedRequests1, slotPendingRequests1, pendingReservations, capacity);
+        checkConsistentState(reservationHandler, pendingReservations, capacity);
     }
 }
