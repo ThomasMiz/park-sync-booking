@@ -215,10 +215,10 @@ public class ReservationHandler {
 
                     // Process collected reservations
                     reservationsToProcess.forEach(reservation -> {
-                        requests.remove(reservation.getVisitorId());
+                        requests.remove(reservation.visitorId());
                         ConfirmedReservation confirmedReservation = new ConfirmedReservation(
                                 reservation, slotIndexTime, dateTimeNow, sortingTiebreaker[0]++);
-                        confirmed.put(reservation.getVisitorId(), confirmedReservation);
+                        confirmed.put(reservation.visitorId(), confirmedReservation);
                         stats[0]++;
                         if (reservationObserver != null)
                             reservationObserver.onConfirmed(confirmedReservation);
@@ -241,7 +241,7 @@ public class ReservationHandler {
 
                     // Process collected reservations
                     reservationsToRelocate.forEach(reservationToRelocate -> {
-                        requests.remove(reservationToRelocate.getVisitorId());
+                        requests.remove(reservationToRelocate.visitorId());
                         boolean relocated = tryRelocateReservation(reservationToRelocate, slotIndex, slotIndexTime);
                         if (relocated) {
                             stats[1]++;
@@ -256,7 +256,7 @@ public class ReservationHandler {
 
     private boolean tryRelocateReservation(Reservation reservation, int currentSlotIndex, LocalTime currentSlotTime) {
         return IntStream.range(currentSlotIndex + 1, slotCount)
-                .filter(nextSlotIndex -> reservation.getTicket().getTicketType()
+                .filter(nextSlotIndex -> reservation.ticket().ticketType()
                         .isSlotTimeValid(getSlotTimeByIndex(nextSlotIndex)))
                 .filter(nextSlotIndex -> {
                     Map<UUID, ConfirmedReservation> nextConfirmed = getOrCreateSlotConfirmedRequests(nextSlotIndex);
@@ -268,7 +268,7 @@ public class ReservationHandler {
                 .findFirst()
                 .map(nextSlotIndex -> {
                     LinkedHashMap<UUID, Reservation> nextPending = getOrCreateSlotPendingRequests(nextSlotIndex);
-                    boolean success = nextPending.putIfAbsent(reservation.getVisitorId(), reservation) == null;
+                    boolean success = nextPending.putIfAbsent(reservation.visitorId(), reservation) == null;
                     if (success && reservationObserver != null) {
                         reservationObserver.onRelocated(reservation, currentSlotTime, getSlotTimeByIndex(nextSlotIndex));
                     }
@@ -313,7 +313,7 @@ public class ReservationHandler {
         if (slotCapacity == -1) {
             // Slot capacity has not been defined, queue the reservation.
             Reservation reservation = new Reservation(ticket, attraction);
-            if (getOrCreateSlotPendingRequests(slotIndex).putIfAbsent(reservation.getVisitorId(), reservation) != null)
+            if (getOrCreateSlotPendingRequests(slotIndex).putIfAbsent(reservation.visitorId(), reservation) != null)
                 throw new ReservationAlreadyExistsException();
 
             if (reservationObserver != null)
@@ -328,11 +328,11 @@ public class ReservationHandler {
 
         // Check if the reservation already exists as pending
         LinkedHashMap<UUID, Reservation> pendings = slotPendingRequests[slotIndex];
-        if (pendings != null && pendings.containsKey(ticket.getVisitorId()))
+        if (pendings != null && pendings.containsKey(ticket.visitorId()))
             throw new ReservationAlreadyExistsException();
 
         ConfirmedReservation reservation = new ConfirmedReservation(ticket, attraction, slotTime);
-        boolean success = confirmed.putIfAbsent(reservation.getVisitorId(), reservation) == null;
+        boolean success = confirmed.putIfAbsent(reservation.visitorId(), reservation) == null;
         if (!success)
             throw new ReservationAlreadyExistsException();
 
@@ -340,8 +340,8 @@ public class ReservationHandler {
         cancelPendingReservationsForSlotIfFull(slotIndex);
 
         if (reservationObserver != null)
-            reservationObserver.onCreated(reservation, slotTime, true);
-        return new MakeReservationResult(reservation, true);
+            reservationObserver.onCreated(reservation.reservation(), slotTime, true);
+        return new MakeReservationResult(reservation.reservation(), true);
     }
 
     /**
@@ -367,7 +367,7 @@ public class ReservationHandler {
 
         Map<UUID, ConfirmedReservation> confirmed = getOrCreateSlotConfirmedRequests(slotIndex);
         ConfirmedReservation confirmedReservation = new ConfirmedReservation(reservation, slotTime);
-        boolean success = confirmed.putIfAbsent(reservation.getVisitorId(), confirmedReservation) == null;
+        boolean success = confirmed.putIfAbsent(reservation.visitorId(), confirmedReservation) == null;
 
         if (success) {
             if (reservationObserver != null)
@@ -394,6 +394,7 @@ public class ReservationHandler {
                 .map(pendings -> pendings.remove(visitorId))
                 .orElseGet(() -> Optional.ofNullable(slotConfirmedRequests[slotIndex])
                         .map(confirmed -> confirmed.remove(visitorId))
+                        .map(ConfirmedReservation::reservation)
                         .orElseThrow(ReservationNotFoundException::new));
 
         if (reservationObserver != null)

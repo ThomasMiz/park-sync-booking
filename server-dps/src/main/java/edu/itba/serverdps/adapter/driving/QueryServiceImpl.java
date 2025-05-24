@@ -56,9 +56,9 @@ public class QueryServiceImpl extends QueryServiceGrpc.QueryServiceImplBase {
 
     private edu.itba.serverdps.port.driving.grpc.ConfirmedReservation buildConfirmedReservationResponse(ConfirmedReservation result) {
         return edu.itba.serverdps.port.driving.grpc.ConfirmedReservation.newBuilder()
-                .setAttractionName(result.getAttraction().getName())
-                .setVisitorId(result.getVisitorId().toString())
-                .setSlot(ParseUtils.formatTime(result.getSlotTime()))
+                .setAttractionName(result.attraction().getName())
+                .setVisitorId(result.visitorId().toString())
+                .setSlot(ParseUtils.formatTime(result.slotTime()))
                 .build();
     }
 }

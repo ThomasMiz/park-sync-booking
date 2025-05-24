@@ -21,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -861,7 +862,7 @@ public class BookingServiceImplTest {
 
         Map<UUID, ConfirmedReservation>[] confirmedReservations = new Map[TOTAL_SLOTS];
 
-        ConfirmedReservation reservation = Mockito.mock(ConfirmedReservation.class);
+        ConfirmedReservation reservation = new ConfirmedReservation(ticket, attraction, LocalTime.of(12, 30), LocalDateTime.of(2023, 6, 12, 16, 20), 5);
         confirmedReservations[0] = new ConcurrentHashMap<>();
         confirmedReservations[0].put(VISITOR_ID, reservation);
 

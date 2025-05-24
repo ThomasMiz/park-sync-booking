@@ -2,9 +2,11 @@ package edu.itba.serverdps.domain.model;
 
 import edu.itba.serverdps.application.exceptions.MissingPassException;
 import lombok.Getter;
+import lombok.experimental.Accessors;
 
 import java.time.LocalTime;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -13,6 +15,7 @@ import java.util.function.Supplier;
  *
  * @implNote The bookTransactional() and removeBook() methods are thread-safe and work as atomic operations
  */
+@Accessors(fluent = true)
 public class Ticket {
     @Getter
     private final UUID visitorId;
@@ -40,18 +43,20 @@ public class Ticket {
      * so the bookings counter is incremented and the transaction function's result is returned. If the transaction
      * function returns null, it is assumed that the reservation failed, so the bookings counter isn't incremented and
      * null is returned.
-     * @param slotTime The time slot for the reservation.
+     *
+     * @param slotTime    The time slot for the reservation.
      * @param transaction The function that makes the reservation.
+     * @param <T>         The return type for the transaction.
      * @return The value returned by the transaction.
-     * @param <T> The return type for the transaction.
      * @throws MissingPassException If the time slot isn't allowed or the user has reached their booking limit.
      */
     public synchronized <T> T bookTransactional(LocalTime slotTime, Supplier<T> transaction) {
         if (!this.ticketType.canBook(this.bookings, slotTime))
             throw new MissingPassException();
         T result = transaction.get();
-        if (result != null)
-            this.bookings++;
+
+        Optional.ofNullable(result).ifPresent(r -> this.bookings++); // no if :-)
+
         return result;
     }
 
@@ -62,18 +67,5 @@ public class Ticket {
         if (this.bookings <= 0)
             throw new IllegalStateException("Cannot removeBook() when bookings is not greater than zero: " + this.bookings);
         this.bookings--;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Ticket ticket = (Ticket) o;
-        return dayOfYear == ticket.dayOfYear && bookings == ticket.bookings && Objects.equals(visitorId, ticket.visitorId) && ticketType == ticket.ticketType;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(visitorId, dayOfYear, ticketType, bookings);
     }
 }

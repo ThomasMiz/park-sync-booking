@@ -60,7 +60,7 @@ public class Attraction {
      * Attempts to make a reservation for a given ticket (which includes visitorId and dayOfYear) and time slot.
      */
     public MakeReservationResult makeReservation(Ticket ticket, LocalTime slotTime) {
-        return reservationHandlers[ticket.getDayOfYear() - 1].makeReservation(ticket, slotTime);
+        return reservationHandlers[ticket.dayOfYear() - 1].makeReservation(ticket, slotTime);
     }
 
     /**

@@ -100,7 +100,7 @@ public class NotificationServiceImpl extends AttractionNotificationServiceGrpc.A
 
             Notification notification = Notification.newBuilder()
                     .setType(NotificationType.NOTIFICATION_TYPE_BOOKING_CONFIRMED)
-                    .setSlotTime(ParseUtils.formatTime(reservation.getSlotTime()))
+                    .setSlotTime(ParseUtils.formatTime(reservation.slotTime()))
                     .build();
 
             streamObserver.onNext(notification);

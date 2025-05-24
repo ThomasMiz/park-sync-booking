@@ -280,7 +280,7 @@ public class AdminServiceImplTest {
     @Test
     public void testAddSameTicketPassForSameDate() {
         Ticket ticket = new Ticket(DEFAULT_VISITOR_ID_UUID, VALID_DAY_OF_YEAR, TicketType.FULL_DAY);
-        ticketsByDay[ticket.getDayOfYear() - 1].put(ticket.getVisitorId(), ticket);
+        ticketsByDay[ticket.dayOfYear() - 1].put(ticket.visitorId(), ticket);
 
         AddTicketRequest request = AddTicketRequest.newBuilder()
                 .setVisitorId(DEFAULT_VISITOR_ID_STRING)
@@ -298,7 +298,7 @@ public class AdminServiceImplTest {
     @Test
     public void testAddOtherPassForSameDate() {
         Ticket ticket = new Ticket(DEFAULT_VISITOR_ID_UUID, VALID_DAY_OF_YEAR, TicketType.FULL_DAY);
-        ticketsByDay[ticket.getDayOfYear() - 1].put(ticket.getVisitorId(), ticket);
+        ticketsByDay[ticket.dayOfYear() - 1].put(ticket.visitorId(), ticket);
 
         AddTicketRequest request = AddTicketRequest.newBuilder()
                 .setVisitorId(DEFAULT_VISITOR_ID_STRING)
@@ -316,7 +316,7 @@ public class AdminServiceImplTest {
     @Test
     public void testAddTicketForOtherDay() {
         Ticket ticket = new Ticket(DEFAULT_VISITOR_ID_UUID, OTHER_VALID_DAY_OF_YEAR, TicketType.FULL_DAY);
-        ticketsByDay[ticket.getDayOfYear() - 1].put(ticket.getVisitorId(), ticket);
+        ticketsByDay[ticket.dayOfYear() - 1].put(ticket.visitorId(), ticket);
 
         AddTicketRequest request = AddTicketRequest.newBuilder()
                 .setVisitorId(DEFAULT_VISITOR_ID_STRING)
@@ -330,9 +330,9 @@ public class AdminServiceImplTest {
         assertEquals(1, ticketsByDay[OTHER_VALID_DAY_OF_YEAR - 1].size());
         assertEquals(ticket, ticketsByDay[OTHER_VALID_DAY_OF_YEAR - 1].get(DEFAULT_VISITOR_ID_UUID));
 
-        assertEquals(DEFAULT_VISITOR_ID_UUID, ticketsByDay[OTHER_VALID_DAY_OF_YEAR - 1].get(DEFAULT_VISITOR_ID_UUID).getVisitorId());
-        assertEquals(OTHER_VALID_DAY_OF_YEAR, ticketsByDay[OTHER_VALID_DAY_OF_YEAR - 1].get(DEFAULT_VISITOR_ID_UUID).getDayOfYear());
-        assertEquals(TicketType.FULL_DAY, ticketsByDay[OTHER_VALID_DAY_OF_YEAR - 1].get(DEFAULT_VISITOR_ID_UUID).getTicketType());
+        assertEquals(DEFAULT_VISITOR_ID_UUID, ticketsByDay[OTHER_VALID_DAY_OF_YEAR - 1].get(DEFAULT_VISITOR_ID_UUID).visitorId());
+        assertEquals(OTHER_VALID_DAY_OF_YEAR, ticketsByDay[OTHER_VALID_DAY_OF_YEAR - 1].get(DEFAULT_VISITOR_ID_UUID).dayOfYear());
+        assertEquals(TicketType.FULL_DAY, ticketsByDay[OTHER_VALID_DAY_OF_YEAR - 1].get(DEFAULT_VISITOR_ID_UUID).ticketType());
     }
 
     @Test
@@ -445,7 +445,7 @@ public class AdminServiceImplTest {
         for (int i = 0; i < VALID_CAPACITY; i++) {
             UUID visitorId = UUID.randomUUID();
             Ticket ticket = new Ticket(visitorId, VALID_DAY_OF_YEAR, TicketType.UNLIMITED);
-            ticketsByDay[VALID_DAY_OF_YEAR - 1].put(ticket.getVisitorId(), ticket);
+            ticketsByDay[VALID_DAY_OF_YEAR - 1].put(ticket.visitorId(), ticket);
             pendingReservations[VALID_DAY_OF_YEAR - 1].put(visitorId, new Reservation(ticket, attraction));
         }
 
@@ -483,7 +483,7 @@ public class AdminServiceImplTest {
             for (int i = 0; i < VALID_CAPACITY + 1; i++) {
                 UUID visitorId = UUID.randomUUID();
                 Ticket ticket = new Ticket(visitorId, VALID_DAY_OF_YEAR, TicketType.UNLIMITED);
-                ticketsByDay[VALID_DAY_OF_YEAR - 1].put(ticket.getVisitorId(), ticket);
+                ticketsByDay[VALID_DAY_OF_YEAR - 1].put(ticket.visitorId(), ticket);
                 pendingReservations[j].put(visitorId, new Reservation(ticket, attraction));
             }
         }
@@ -522,7 +522,7 @@ public class AdminServiceImplTest {
         for (int i = 0; i < 2 * VALID_CAPACITY; i++) {
             UUID visitorId = UUID.randomUUID();
             Ticket ticket = new Ticket(visitorId, VALID_DAY_OF_YEAR, TicketType.UNLIMITED);
-            ticketsByDay[VALID_DAY_OF_YEAR - 1].put(ticket.getVisitorId(), ticket);
+            ticketsByDay[VALID_DAY_OF_YEAR - 1].put(ticket.visitorId(), ticket);
             pendingReservations[0].put(visitorId, new Reservation(ticket, attraction));
         }
 

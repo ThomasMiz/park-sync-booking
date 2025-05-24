@@ -40,7 +40,7 @@ public class NotificationRouterHandler implements ReservationObserver {
 
     @Override
     public void onCreated(Reservation reservation, LocalTime slotTime, boolean isConfirmed) {
-        notifyObserver(reservation.getDayOfYear(), reservation.getAttraction(), reservation.getVisitorId(),
+        notifyObserver(reservation.dayOfYear(), reservation.attraction(), reservation.visitorId(),
                 stream -> {
                     stream.onCreated(reservation, slotTime, isConfirmed);
                     stream.onComplete();
@@ -49,7 +49,7 @@ public class NotificationRouterHandler implements ReservationObserver {
 
     @Override
     public void onConfirmed(ConfirmedReservation reservation) {
-        notifyObserver(reservation.getDayOfYear(), reservation.getAttraction(), reservation.getVisitorId(),
+        notifyObserver(reservation.dayOfYear(), reservation.attraction(), reservation.visitorId(),
                 stream -> {
                     stream.onConfirmed(reservation);
                     stream.onComplete();
@@ -58,13 +58,13 @@ public class NotificationRouterHandler implements ReservationObserver {
 
     @Override
     public void onRelocated(Reservation reservation, LocalTime prevSlotTime, LocalTime newSlotTime) {
-        notifyObserver(reservation.getDayOfYear(), reservation.getAttraction(), reservation.getVisitorId(),
+        notifyObserver(reservation.dayOfYear(), reservation.attraction(), reservation.visitorId(),
                 stream -> stream.onRelocated(reservation, prevSlotTime, newSlotTime));
     }
 
     @Override
     public void onCancelled(Reservation reservation, LocalTime slotTime) {
-        notifyObserver(reservation.getDayOfYear(), reservation.getAttraction(), reservation.getVisitorId(),
+        notifyObserver(reservation.dayOfYear(), reservation.attraction(), reservation.visitorId(),
                 stream -> {
                     stream.onCancelled(reservation, slotTime);
                     stream.onComplete();

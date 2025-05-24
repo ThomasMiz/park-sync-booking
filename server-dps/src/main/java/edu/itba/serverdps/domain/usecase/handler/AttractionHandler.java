@@ -4,16 +4,16 @@ import edu.itba.serverdps.application.exceptions.AttractionAlreadyExistsExceptio
 import edu.itba.serverdps.application.exceptions.AttractionNotFoundException;
 import edu.itba.serverdps.application.exceptions.MissingPassException;
 import edu.itba.serverdps.application.exceptions.TicketAlreadyExistsException;
+import edu.itba.serverdps.application.utils.Constants;
 import edu.itba.serverdps.domain.model.Attraction;
 import edu.itba.serverdps.domain.model.ConfirmedReservation;
 import edu.itba.serverdps.domain.model.Ticket;
 import edu.itba.serverdps.domain.model.TicketType;
-import edu.itba.serverdps.domain.usecase.ReservationObserver;
 import edu.itba.serverdps.domain.model.result.AttractionAvailabilityResult;
 import edu.itba.serverdps.domain.model.result.DefineSlotCapacityResult;
 import edu.itba.serverdps.domain.model.result.MakeReservationResult;
 import edu.itba.serverdps.domain.model.result.SuggestedCapacityResult;
-import edu.itba.serverdps.application.utils.Constants;
+import edu.itba.serverdps.domain.usecase.ReservationObserver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -22,19 +22,22 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Component
 public class AttractionHandler {
     private final ConcurrentMap<String, Attraction> attractions;
-    private final ConcurrentMap<UUID, Ticket>[] ticketsByDay;
+    private final List<ConcurrentMap<UUID, Ticket>> ticketsByDay;
     private final ReservationObserver reservationObserver;
 
     @Autowired
     public AttractionHandler(ReservationObserver reservationObserver) {
         this.attractions = new ConcurrentHashMap<>();
-        this.ticketsByDay = (ConcurrentMap<UUID, Ticket>[]) new ConcurrentMap[Constants.DAYS_IN_YEAR];
-        for (int i = 0; i < ticketsByDay.length; i++)
-            ticketsByDay[i] = new ConcurrentHashMap<>();
+
+        this.ticketsByDay = Stream.generate(() -> (ConcurrentMap<UUID, Ticket>) new ConcurrentHashMap<UUID, Ticket>())
+                .limit(Constants.DAYS_IN_YEAR)
+                .toList();
+
         this.reservationObserver = reservationObserver;
     }
 
@@ -44,12 +47,12 @@ public class AttractionHandler {
      */
     public AttractionHandler(ConcurrentMap<String, Attraction> attractions, ConcurrentMap<UUID, Ticket>[] ticketsByDay) {
         this.attractions = attractions;
-        this.ticketsByDay = ticketsByDay;
+        this.ticketsByDay = Arrays.asList(ticketsByDay);
         this.reservationObserver = null;
     }
 
     private Ticket getTicketOrThrow(UUID visitorId, int dayOfYear) {
-        return Optional.ofNullable(this.ticketsByDay[dayOfYear - 1].get(visitorId))
+        return Optional.ofNullable(this.ticketsByDay.get(dayOfYear - 1).get(visitorId))
                 .orElseThrow(MissingPassException::new);
     }
 
@@ -79,7 +82,7 @@ public class AttractionHandler {
     }
 
     public void addTicket(UUID visitorId, int dayOfYear, TicketType ticketType) {
-        ConcurrentMap<UUID, Ticket> visitorTickets = ticketsByDay[dayOfYear - 1];
+        ConcurrentMap<UUID, Ticket> visitorTickets = ticketsByDay.get(dayOfYear - 1);
         Ticket ticket = new Ticket(visitorId, dayOfYear, ticketType);
         if (visitorTickets.putIfAbsent(visitorId, ticket) != null) {
             throw new TicketAlreadyExistsException();
@@ -124,7 +127,7 @@ public class AttractionHandler {
                     return results;
                 })
                 .flatMap(Collection::stream)
-                .collect(Collectors.toUnmodifiableList());
+                .toList();
     }
 
     /**
@@ -134,7 +137,7 @@ public class AttractionHandler {
      */
     public void confirmReservation(String attractionName, UUID visitorId, int dayOfYear, LocalTime slotTime) {
         Ticket ticket = getTicketOrThrow(visitorId, dayOfYear);
-        if (!ticket.getTicketType().isSlotTimeValid(slotTime))
+        if (!ticket.ticketType().isSlotTimeValid(slotTime))
             throw new MissingPassException();
 
         getAttraction(attractionName).confirmReservation(visitorId, dayOfYear, slotTime);
@@ -147,7 +150,7 @@ public class AttractionHandler {
      */
     public void cancelReservation(String attractionName, UUID visitorId, int dayOfYear, LocalTime slotTime) {
         Ticket ticket = getTicketOrThrow(visitorId, dayOfYear);
-        if (!ticket.getTicketType().isSlotTimeValid(slotTime))
+        if (!ticket.ticketType().isSlotTimeValid(slotTime))
             throw new MissingPassException();
 
         getAttraction(attractionName).cancelReservation(visitorId, dayOfYear, slotTime);

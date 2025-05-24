@@ -18,8 +18,6 @@ public interface ReservationObserver {
 
     /**
      * Called whenever a new reservation is created.
-     *
-     * @implNote To avoid race conditions, use the isConfirmed param instead of reservation.isConfirmed().
      */
     void onCreated(Reservation reservation, LocalTime slotTime, boolean isConfirmed);
 
