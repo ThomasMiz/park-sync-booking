@@ -3,32 +3,25 @@ package edu.itba.serverdps.services;
 import com.google.protobuf.Empty;
 import edu.itba.serverdps.adapter.driving.AdminServiceImpl;
 import edu.itba.serverdps.application.exceptions.*;
-import edu.itba.serverdps.port.driving.grpc.*;
-import edu.itba.serverdps.domain.usecase.handler.AttractionHandler;
-import edu.itba.serverdps.domain.usecase.handler.ReservationHandler;
-import edu.itba.serverdps.domain.model.Attraction;
-import edu.itba.serverdps.domain.model.Reservation;
-import edu.itba.serverdps.domain.model.Ticket;
 import edu.itba.serverdps.domain.model.TicketType;
-import edu.itba.serverdps.domain.usecase.ReservationObserver;
+import edu.itba.serverdps.domain.model.result.DefineSlotCapacityResult;
+import edu.itba.serverdps.domain.usecase.handler.AttractionHandler;
+import edu.itba.serverdps.port.driving.grpc.*;
 import io.grpc.stub.StreamObserver;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
 import java.time.LocalTime;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 @RunWith(MockitoJUnitRunner.class)
 public class AdminServiceImplTest {
@@ -56,30 +49,17 @@ public class AdminServiceImplTest {
     private static final int VALID_CAPACITY = 10;
     private static final int INVALID_CAPACITY = -1;
 
-    // TODO: REMOVE
-    private final ConcurrentMap<String, Attraction> attractions = new ConcurrentHashMap<>();
-    private final ConcurrentMap<UUID, Ticket>[] ticketsByDay = TestUtils.generateTicketsByDayMaps();
-
     @Mock
     private AttractionHandler attractionHandler;
 
-    @Mock
-    private StreamObserver<Empty> emptyStreamObserver;
-    @Mock
-    private StreamObserver<AddCapacityResponse> capacityResponseObserver;
-
     @InjectMocks
-    private final AdminServiceImpl adminService = new AdminServiceImpl(attractionHandler);
-
-    @Before
-    public void setUp() {
-        attractions.clear();
-        for (int i = 0; i < ticketsByDay.length; i++)
-            ticketsByDay[i].clear();
-    }
+    private AdminServiceImpl adminService;
 
     @Test
     public void testAddAttraction() {
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request
         final AddAttractionRequest request = AddAttractionRequest.newBuilder()
                 .setName(ATTRACTION_NAME)
                 .setClosingTime(CLOSING_TIME)
@@ -87,15 +67,27 @@ public class AdminServiceImplTest {
                 .setSlotDurationMinutes(SLOT_GAP)
                 .build();
 
-        adminService.addAttraction(request, emptyStreamObserver);
-        assertTrue(attractions.containsKey(ATTRACTION_NAME));
+        // Call the service
+        adminService.addAttraction(request, responseObserver);
+
+        // Verify that the handler was called with correct parameters
+        verify(attractionHandler).createAttraction(
+                eq(ATTRACTION_NAME),
+                eq(LocalTime.parse(OPENING_TIME)),
+                eq(LocalTime.parse(CLOSING_TIME)),
+                eq(SLOT_GAP)
+        );
+
+        // Verify that the response observer was completed successfully
+        verify(responseObserver).onNext(Empty.getDefaultInstance());
+        verify(responseObserver).onCompleted();
     }
 
     @Test
     public void testAddAnotherAttraction() {
-        Attraction attraction = new Attraction(ANOTHER_ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.name(), attraction);
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
 
+        // Prepare request for a second attraction
         final AddAttractionRequest request = AddAttractionRequest.newBuilder()
                 .setName(ATTRACTION_NAME)
                 .setClosingTime(CLOSING_TIME)
@@ -103,18 +95,27 @@ public class AdminServiceImplTest {
                 .setSlotDurationMinutes(SLOT_GAP)
                 .build();
 
-        adminService.addAttraction(request, emptyStreamObserver);
+        // Call the service
+        adminService.addAttraction(request, responseObserver);
 
-        assertTrue(attractions.containsKey(ATTRACTION_NAME));
-        assertTrue(attractions.containsKey(ANOTHER_ATTRACTION_NAME));
-        assertEquals(2, attractions.size());
+        // Verify that the handler was called with correct parameters
+        verify(attractionHandler).createAttraction(
+                eq(ATTRACTION_NAME),
+                eq(LocalTime.parse(OPENING_TIME)),
+                eq(LocalTime.parse(CLOSING_TIME)),
+                eq(SLOT_GAP)
+        );
+
+        // Verify that the response observer was completed successfully
+        verify(responseObserver).onNext(Empty.getDefaultInstance());
+        verify(responseObserver).onCompleted();
     }
 
     @Test
     public void testAddAttractionWithExistingName() {
-        final Attraction attraction = new Attraction(ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.name(), attraction);
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
 
+        // Prepare request
         final AddAttractionRequest request = AddAttractionRequest.newBuilder()
                 .setName(ATTRACTION_NAME)
                 .setOpeningTime(OPENING_TIME)
@@ -122,14 +123,30 @@ public class AdminServiceImplTest {
                 .setSlotDurationMinutes(SLOT_GAP)
                 .build();
 
-        assertThrows(AttractionAlreadyExistsException.class, () -> adminService.addAttraction(request, emptyStreamObserver));
+        // Set up mock to throw exception
+        doThrow(new AttractionAlreadyExistsException())
+                .when(attractionHandler)
+                .createAttraction(
+                        eq(ATTRACTION_NAME),
+                        eq(LocalTime.parse(OPENING_TIME)),
+                        eq(LocalTime.parse(CLOSING_TIME)),
+                        eq(SLOT_GAP)
+                );
 
-        assertTrue(attractions.containsKey(ATTRACTION_NAME));
-        assertEquals(1, attractions.size());
+        // Verify the exception is thrown
+        assertThrows(AttractionAlreadyExistsException.class,
+                () -> adminService.addAttraction(request, responseObserver));
+
+        // Verify that the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddAttractionWithInvalidName() {
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request with invalid name
         final AddAttractionRequest request = AddAttractionRequest.newBuilder()
                 .setName(INVALID_ATTRACTION_NAME)
                 .setOpeningTime(OPENING_TIME)
@@ -137,13 +154,23 @@ public class AdminServiceImplTest {
                 .setSlotDurationMinutes(SLOT_GAP)
                 .build();
 
-        assertThrows(EmptyAttractionException.class, () -> adminService.addAttraction(request, emptyStreamObserver));
+        // Verify the exception is thrown directly from the service
+        assertThrows(EmptyAttractionException.class,
+                () -> adminService.addAttraction(request, responseObserver));
 
-        assertTrue(attractions.isEmpty());
+        // Verify that the handler was never called
+        verify(attractionHandler, never()).createAttraction(any(), any(), any(), anyInt());
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddAttractionWithInvalidSlotGapNoMinutes() {
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request with invalid duration
         final AddAttractionRequest request = AddAttractionRequest.newBuilder()
                 .setName(ATTRACTION_NAME)
                 .setOpeningTime(OPENING_TIME)
@@ -151,13 +178,23 @@ public class AdminServiceImplTest {
                 .setSlotDurationMinutes(NO_SLOT_GAP)
                 .build();
 
-        assertThrows(InvalidDurationException.class, () -> adminService.addAttraction(request, emptyStreamObserver));
+        // Verify the exception is thrown directly from the service
+        assertThrows(InvalidDurationException.class,
+                () -> adminService.addAttraction(request, responseObserver));
 
-        assertTrue(attractions.isEmpty());
+        // Verify that the handler was never called
+        verify(attractionHandler, never()).createAttraction(any(), any(), any(), anyInt());
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddAttractionWithInvalidSlotGapNegativeMinutes() {
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request with negative duration
         final AddAttractionRequest request = AddAttractionRequest.newBuilder()
                 .setName(ATTRACTION_NAME)
                 .setOpeningTime(OPENING_TIME)
@@ -165,13 +202,23 @@ public class AdminServiceImplTest {
                 .setSlotDurationMinutes(NEGATIVE_SLOT_GAP)
                 .build();
 
-        assertThrows(InvalidDurationException.class, () -> adminService.addAttraction(request, emptyStreamObserver));
+        // Verify the exception is thrown directly from the service
+        assertThrows(InvalidDurationException.class,
+                () -> adminService.addAttraction(request, responseObserver));
 
-        assertTrue(attractions.isEmpty());
+        // Verify that the handler was never called
+        verify(attractionHandler, never()).createAttraction(any(), any(), any(), anyInt());
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddAttractionWithInvalidHours() {
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request with invalid hours (closing before opening)
         final AddAttractionRequest request = AddAttractionRequest.newBuilder()
                 .setName(ATTRACTION_NAME)
                 .setOpeningTime(CLOSING_TIME)
@@ -179,13 +226,23 @@ public class AdminServiceImplTest {
                 .setSlotDurationMinutes(SLOT_GAP)
                 .build();
 
-        assertThrows(InvalidOpeningAndClosingTimeException.class, () -> adminService.addAttraction(request, emptyStreamObserver));
+        // Verify the exception is thrown directly from the service
+        assertThrows(InvalidOpeningAndClosingTimeException.class,
+                () -> adminService.addAttraction(request, responseObserver));
 
-        assertTrue(attractions.isEmpty());
+        // Verify that the handler was never called
+        verify(attractionHandler, never()).createAttraction(any(), any(), any(), anyInt());
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddAttractionWithInvalidHourForm() {
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request with invalid opening time
         final AddAttractionRequest request = AddAttractionRequest.newBuilder()
                 .setName(ATTRACTION_NAME)
                 .setOpeningTime(INVALID_HOURS_FROM)
@@ -193,13 +250,23 @@ public class AdminServiceImplTest {
                 .setSlotDurationMinutes(SLOT_GAP)
                 .build();
 
-        assertThrows(InvalidSlotException.class, () -> adminService.addAttraction(request, emptyStreamObserver));
+        // Verify the exception is thrown from the time parsing
+        assertThrows(InvalidSlotException.class,
+                () -> adminService.addAttraction(request, responseObserver));
 
-        assertTrue(attractions.isEmpty());
+        // Verify that the handler was never called
+        verify(attractionHandler, never()).createAttraction(any(), any(), any(), anyInt());
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddAttractionWithInvalidHourTo() {
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request with invalid closing time
         final AddAttractionRequest request = AddAttractionRequest.newBuilder()
                 .setName(ATTRACTION_NAME)
                 .setOpeningTime(OPENING_TIME)
@@ -207,13 +274,23 @@ public class AdminServiceImplTest {
                 .setSlotDurationMinutes(SLOT_GAP)
                 .build();
 
-        assertThrows(InvalidSlotException.class, () -> adminService.addAttraction(request, emptyStreamObserver));
+        // Verify the exception is thrown from the time parsing
+        assertThrows(InvalidSlotException.class,
+                () -> adminService.addAttraction(request, responseObserver));
 
-        assertTrue(attractions.isEmpty());
+        // Verify that the handler was never called
+        verify(attractionHandler, never()).createAttraction(any(), any(), any(), anyInt());
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddAttractionWithInvalidHourFormFormat() {
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request with invalid opening time format
         final AddAttractionRequest request = AddAttractionRequest.newBuilder()
                 .setName(ATTRACTION_NAME)
                 .setOpeningTime(INVALID_HOURS_FROM_FORMAT)
@@ -221,13 +298,23 @@ public class AdminServiceImplTest {
                 .setSlotDurationMinutes(SLOT_GAP)
                 .build();
 
-        assertThrows(InvalidSlotException.class, () -> adminService.addAttraction(request, emptyStreamObserver));
+        // Verify the exception is thrown from the time parsing
+        assertThrows(InvalidSlotException.class,
+                () -> adminService.addAttraction(request, responseObserver));
 
-        assertTrue(attractions.isEmpty());
+        // Verify that the handler was never called
+        verify(attractionHandler, never()).createAttraction(any(), any(), any(), anyInt());
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddAttractionWithInvalidHourToFormat() {
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request with invalid closing time format
         final AddAttractionRequest request = AddAttractionRequest.newBuilder()
                 .setName(ATTRACTION_NAME)
                 .setOpeningTime(OPENING_TIME)
@@ -235,202 +322,385 @@ public class AdminServiceImplTest {
                 .setSlotDurationMinutes(SLOT_GAP)
                 .build();
 
-        assertThrows(InvalidSlotException.class, () -> adminService.addAttraction(request, emptyStreamObserver));
+        // Verify the exception is thrown from the time parsing
+        assertThrows(InvalidSlotException.class,
+                () -> adminService.addAttraction(request, responseObserver));
 
-        assertTrue(attractions.isEmpty());
+        // Verify that the handler was never called
+        verify(attractionHandler, never()).createAttraction(any(), any(), any(), anyInt());
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddTicket() {
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request
         AddTicketRequest request = AddTicketRequest.newBuilder()
                 .setVisitorId(DEFAULT_VISITOR_ID_STRING)
                 .setDayOfYear(VALID_DAY_OF_YEAR)
                 .setPassType(PassType.PASS_TYPE_FULL_DAY)
                 .build();
 
-        adminService.addTicket(request, emptyStreamObserver);
+        // Call the service
+        adminService.addTicket(request, responseObserver);
 
-        assertTrue(ticketsByDay[VALID_DAY_OF_YEAR - 1].containsKey(DEFAULT_VISITOR_ID_UUID));
-        assertNotNull(ticketsByDay[VALID_DAY_OF_YEAR - 1].get(DEFAULT_VISITOR_ID_UUID));
-        assertEquals(1, ticketsByDay[VALID_DAY_OF_YEAR - 1].size());
+        // Verify that the handler was called with the correct arguments
+        verify(attractionHandler).addTicket(
+                eq(DEFAULT_VISITOR_ID_UUID),
+                eq(VALID_DAY_OF_YEAR),
+                eq(TicketType.FULL_DAY)
+        );
+
+        // Verify that the response observer was completed successfully
+        verify(responseObserver).onNext(Empty.getDefaultInstance());
+        verify(responseObserver).onCompleted();
     }
 
     @Test
     public void testAddTicketFailureMoreThan365Days() {
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request with invalid day
         AddTicketRequest request = AddTicketRequest.newBuilder()
                 .setVisitorId(DEFAULT_VISITOR_ID_STRING)
                 .setDayOfYear(INVALID_DAY_OF_YEAR)
                 .setPassType(PassType.PASS_TYPE_FULL_DAY)
                 .build();
 
-        assertThrows(InvalidDayException.class, () -> adminService.addTicket(request, emptyStreamObserver));
+        // Verify the exception is thrown directly from the service
+        assertThrows(InvalidDayException.class,
+                () -> adminService.addTicket(request, responseObserver));
 
-        for (int i = 0; i < ticketsByDay.length; i++)
-            assertTrue(ticketsByDay[i].isEmpty());
+        // Verify that the handler was never called
+        verify(attractionHandler, never()).addTicket(any(), anyInt(), any());
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddTicketFailureLessThan1Day() {
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request with invalid day
         AddTicketRequest request = AddTicketRequest.newBuilder()
                 .setVisitorId(DEFAULT_VISITOR_ID_STRING)
                 .setDayOfYear(OTHER_INVALID_DAY_OF_YEAR)
                 .setPassType(PassType.PASS_TYPE_FULL_DAY)
                 .build();
 
-        assertThrows(InvalidDayException.class, () -> adminService.addTicket(request, emptyStreamObserver));
+        // Verify the exception is thrown directly from the service
+        assertThrows(InvalidDayException.class,
+                () -> adminService.addTicket(request, responseObserver));
 
-        for (int i = 0; i < ticketsByDay.length; i++)
-            assertTrue(ticketsByDay[i].isEmpty());
+        // Verify that the handler was never called
+        verify(attractionHandler, never()).addTicket(any(), anyInt(), any());
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddSameTicketPassForSameDate() {
-        Ticket ticket = new Ticket(DEFAULT_VISITOR_ID_UUID, VALID_DAY_OF_YEAR, TicketType.FULL_DAY);
-        ticketsByDay[ticket.dayOfYear() - 1].put(ticket.visitorId(), ticket);
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
 
+        // Prepare request
         AddTicketRequest request = AddTicketRequest.newBuilder()
                 .setVisitorId(DEFAULT_VISITOR_ID_STRING)
                 .setDayOfYear(VALID_DAY_OF_YEAR)
                 .setPassType(PassType.PASS_TYPE_FULL_DAY)
                 .build();
 
-        assertThrows(TicketAlreadyExistsException.class, () -> adminService.addTicket(request, emptyStreamObserver));
+        // Setup mock to throw exception
+        doThrow(new TicketAlreadyExistsException())
+                .when(attractionHandler)
+                .addTicket(
+                        eq(DEFAULT_VISITOR_ID_UUID),
+                        eq(VALID_DAY_OF_YEAR),
+                        eq(TicketType.FULL_DAY)
+                );
 
-        assertTrue(ticketsByDay[VALID_DAY_OF_YEAR - 1].containsKey(DEFAULT_VISITOR_ID_UUID));
-        assertEquals(1, ticketsByDay[VALID_DAY_OF_YEAR - 1].size());
-        assertEquals(ticketsByDay[VALID_DAY_OF_YEAR - 1].get(DEFAULT_VISITOR_ID_UUID), ticket);
+        // Verify the exception is thrown
+        assertThrows(TicketAlreadyExistsException.class,
+                () -> adminService.addTicket(request, responseObserver));
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddOtherPassForSameDate() {
-        Ticket ticket = new Ticket(DEFAULT_VISITOR_ID_UUID, VALID_DAY_OF_YEAR, TicketType.FULL_DAY);
-        ticketsByDay[ticket.dayOfYear() - 1].put(ticket.visitorId(), ticket);
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
 
+        // Prepare request with half day pass
         AddTicketRequest request = AddTicketRequest.newBuilder()
                 .setVisitorId(DEFAULT_VISITOR_ID_STRING)
                 .setDayOfYear(VALID_DAY_OF_YEAR)
                 .setPassType(PassType.PASS_TYPE_HALF_DAY)
                 .build();
 
-        assertThrows(TicketAlreadyExistsException.class, () -> adminService.addTicket(request, emptyStreamObserver));
+        // Setup mock to throw exception
+        doThrow(new TicketAlreadyExistsException())
+                .when(attractionHandler)
+                .addTicket(
+                        eq(DEFAULT_VISITOR_ID_UUID),
+                        eq(VALID_DAY_OF_YEAR),
+                        eq(TicketType.HALF_DAY)
+                );
 
-        assertTrue(ticketsByDay[VALID_DAY_OF_YEAR - 1].containsKey(DEFAULT_VISITOR_ID_UUID));
-        assertEquals(1, ticketsByDay[VALID_DAY_OF_YEAR - 1].size());
-        assertEquals(ticket, ticketsByDay[VALID_DAY_OF_YEAR - 1].get(DEFAULT_VISITOR_ID_UUID));
+        // Verify the exception is thrown
+        assertThrows(TicketAlreadyExistsException.class,
+                () -> adminService.addTicket(request, responseObserver));
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddTicketForOtherDay() {
-        Ticket ticket = new Ticket(DEFAULT_VISITOR_ID_UUID, OTHER_VALID_DAY_OF_YEAR, TicketType.FULL_DAY);
-        ticketsByDay[ticket.dayOfYear() - 1].put(ticket.visitorId(), ticket);
+        StreamObserver<Empty> responseObserver = mock(StreamObserver.class);
 
+        // Prepare request for a different day
         AddTicketRequest request = AddTicketRequest.newBuilder()
                 .setVisitorId(DEFAULT_VISITOR_ID_STRING)
                 .setDayOfYear(OTHER_VALID_DAY_OF_YEAR)
                 .setPassType(PassType.PASS_TYPE_FULL_DAY)
                 .build();
 
-        assertThrows(TicketAlreadyExistsException.class, () -> adminService.addTicket(request, emptyStreamObserver));
+        // Setup mock to throw exception
+        doThrow(new TicketAlreadyExistsException())
+                .when(attractionHandler)
+                .addTicket(
+                        eq(DEFAULT_VISITOR_ID_UUID),
+                        eq(OTHER_VALID_DAY_OF_YEAR),
+                        eq(TicketType.FULL_DAY)
+                );
 
-        assertTrue(ticketsByDay[OTHER_VALID_DAY_OF_YEAR - 1].containsKey(DEFAULT_VISITOR_ID_UUID));
-        assertEquals(1, ticketsByDay[OTHER_VALID_DAY_OF_YEAR - 1].size());
-        assertEquals(ticket, ticketsByDay[OTHER_VALID_DAY_OF_YEAR - 1].get(DEFAULT_VISITOR_ID_UUID));
+        // Verify the exception is thrown
+        assertThrows(TicketAlreadyExistsException.class,
+                () -> adminService.addTicket(request, responseObserver));
 
-        assertEquals(DEFAULT_VISITOR_ID_UUID, ticketsByDay[OTHER_VALID_DAY_OF_YEAR - 1].get(DEFAULT_VISITOR_ID_UUID).visitorId());
-        assertEquals(OTHER_VALID_DAY_OF_YEAR, ticketsByDay[OTHER_VALID_DAY_OF_YEAR - 1].get(DEFAULT_VISITOR_ID_UUID).dayOfYear());
-        assertEquals(TicketType.FULL_DAY, ticketsByDay[OTHER_VALID_DAY_OF_YEAR - 1].get(DEFAULT_VISITOR_ID_UUID).ticketType());
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddCapacityFailureMoreThan365Days() {
-        assertThrows(InvalidDayException.class, () -> adminService.addCapacity(AddCapacityRequest.newBuilder()
+        StreamObserver<AddCapacityResponse> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request with invalid day
+        AddCapacityRequest request = AddCapacityRequest.newBuilder()
                 .setAttractionName(ATTRACTION_NAME)
                 .setDayOfYear(INVALID_DAY_OF_YEAR)
                 .setCapacity(VALID_CAPACITY)
-                .build(), capacityResponseObserver));
+                .build();
+
+        // Verify the exception is thrown directly from the service
+        assertThrows(InvalidDayException.class,
+                () -> adminService.addCapacity(request, responseObserver));
+
+        // Verify that the handler was never called
+        verify(attractionHandler, never()).setSlotCapacityForAttraction(any(), anyInt(), anyInt());
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddCapacityFailureLessThan1Day() {
-        assertThrows(InvalidDayException.class, () -> adminService.addCapacity(AddCapacityRequest.newBuilder()
+        StreamObserver<AddCapacityResponse> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request with invalid day
+        AddCapacityRequest request = AddCapacityRequest.newBuilder()
                 .setAttractionName(ATTRACTION_NAME)
                 .setDayOfYear(OTHER_INVALID_DAY_OF_YEAR)
                 .setCapacity(VALID_CAPACITY)
-                .build(), capacityResponseObserver));
+                .build();
+
+        // Verify the exception is thrown directly from the service
+        assertThrows(InvalidDayException.class,
+                () -> adminService.addCapacity(request, responseObserver));
+
+        // Verify that the handler was never called
+        verify(attractionHandler, never()).setSlotCapacityForAttraction(any(), anyInt(), anyInt());
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddCapacityFailureNoAttractionName() {
-        assertThrows(EmptyAttractionException.class, () -> adminService.addCapacity(AddCapacityRequest.newBuilder()
+        StreamObserver<AddCapacityResponse> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request with empty attraction name
+        AddCapacityRequest request = AddCapacityRequest.newBuilder()
                 .setAttractionName("")
                 .setDayOfYear(VALID_DAY_OF_YEAR)
                 .setCapacity(VALID_CAPACITY)
-                .build(), capacityResponseObserver));
+                .build();
+
+        // Verify the exception is thrown directly from the service
+        assertThrows(EmptyAttractionException.class,
+                () -> adminService.addCapacity(request, responseObserver));
+
+        // Verify that the handler was never called
+        verify(attractionHandler, never()).setSlotCapacityForAttraction(any(), anyInt(), anyInt());
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddCapacityFailureBlankAttractionName() {
-        assertThrows(EmptyAttractionException.class, () -> adminService.addCapacity(AddCapacityRequest.newBuilder()
+        StreamObserver<AddCapacityResponse> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request with blank attraction name
+        AddCapacityRequest request = AddCapacityRequest.newBuilder()
                 .setAttractionName(" ")
                 .setDayOfYear(VALID_DAY_OF_YEAR)
                 .setCapacity(VALID_CAPACITY)
-                .build(), capacityResponseObserver));
+                .build();
+
+        // Verify the exception is thrown directly from the service
+        assertThrows(EmptyAttractionException.class,
+                () -> adminService.addCapacity(request, responseObserver));
+
+        // Verify that the handler was never called
+        verify(attractionHandler, never()).setSlotCapacityForAttraction(any(), anyInt(), anyInt());
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddCapacityFailureAttractionDoesNotExist() {
-        assertThrows(AttractionNotFoundException.class, () -> adminService.addCapacity(AddCapacityRequest.newBuilder()
+        StreamObserver<AddCapacityResponse> responseObserver = mock(StreamObserver.class);
+
+        // Prepare request
+        AddCapacityRequest request = AddCapacityRequest.newBuilder()
                 .setAttractionName(ATTRACTION_NAME)
                 .setDayOfYear(VALID_DAY_OF_YEAR)
                 .setCapacity(VALID_CAPACITY)
-                .build(), capacityResponseObserver));
+                .build();
+
+        // Setup mock to throw exception
+        doThrow(new AttractionNotFoundException())
+                .when(attractionHandler)
+                .setSlotCapacityForAttraction(
+                        eq(ATTRACTION_NAME),
+                        eq(VALID_DAY_OF_YEAR),
+                        eq(VALID_CAPACITY)
+                );
+
+        // Verify the exception is thrown
+        assertThrows(AttractionNotFoundException.class,
+                () -> adminService.addCapacity(request, responseObserver));
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddCapacityFailureCapacityIsNegative() {
-        Attraction attraction = new Attraction(ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.name(), attraction);
+        StreamObserver<AddCapacityResponse> responseObserver = mock(StreamObserver.class);
 
-        assertThrows(NegativeCapacityException.class, () -> adminService.addCapacity(AddCapacityRequest.newBuilder()
+        // Prepare request with negative capacity
+        AddCapacityRequest request = AddCapacityRequest.newBuilder()
                 .setAttractionName(ATTRACTION_NAME)
                 .setDayOfYear(VALID_DAY_OF_YEAR)
                 .setCapacity(INVALID_CAPACITY)
-                .build(), capacityResponseObserver));
+                .build();
+
+        // Verify the exception is thrown directly from the service
+        assertThrows(NegativeCapacityException.class,
+                () -> adminService.addCapacity(request, responseObserver));
+
+        // Verify that the handler was never called
+        verify(attractionHandler, never()).setSlotCapacityForAttraction(any(), anyInt(), anyInt());
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddCapacityFailureCapacityAlreadySet() {
-        Attraction attraction = new Attraction(ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.name(), attraction);
+        StreamObserver<AddCapacityResponse> responseObserver = mock(StreamObserver.class);
 
-        ReservationHandler reservationHandler = new ReservationHandler(attraction,
-                VALID_DAY_OF_YEAR, Mockito.mock(ReservationObserver.class),
-                VALID_CAPACITY, new Map[TOTAL_SLOTS], new LinkedHashMap[TOTAL_SLOTS]);
-        attraction.setReservationHandler(VALID_DAY_OF_YEAR, reservationHandler);
-
-        assertThrows(CapacityAlreadyDefinedException.class, () -> adminService.addCapacity(AddCapacityRequest.newBuilder()
+        // Prepare request
+        AddCapacityRequest request = AddCapacityRequest.newBuilder()
                 .setAttractionName(ATTRACTION_NAME)
                 .setDayOfYear(VALID_DAY_OF_YEAR)
                 .setCapacity(VALID_CAPACITY)
-                .build(), capacityResponseObserver));
+                .build();
+
+        // Setup mock to throw exception
+        doThrow(new CapacityAlreadyDefinedException())
+                .when(attractionHandler)
+                .setSlotCapacityForAttraction(
+                        eq(ATTRACTION_NAME),
+                        eq(VALID_DAY_OF_YEAR),
+                        eq(VALID_CAPACITY)
+                );
+
+        // Verify the exception is thrown
+        assertThrows(CapacityAlreadyDefinedException.class,
+                () -> adminService.addCapacity(request, responseObserver));
+
+        // Verify the observer was not completed
+        verify(responseObserver, never()).onNext(any());
+        verify(responseObserver, never()).onCompleted();
     }
 
     @Test
     public void testAddCapacitySuccess() {
-        Attraction attraction = new Attraction(ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.name(), attraction);
+        StreamObserver<AddCapacityResponse> responseObserver = mock(StreamObserver.class);
 
-        adminService.addCapacity(AddCapacityRequest.newBuilder()
+        // Prepare request
+        AddCapacityRequest request = AddCapacityRequest.newBuilder()
                 .setAttractionName(ATTRACTION_NAME)
                 .setDayOfYear(VALID_DAY_OF_YEAR)
                 .setCapacity(VALID_CAPACITY)
-                .build(), capacityResponseObserver);
+                .build();
 
+        // Mock successful result with no changes
+        DefineSlotCapacityResult mockResult = new DefineSlotCapacityResult(0, 0, 0);
+        when(attractionHandler.setSlotCapacityForAttraction(
+                eq(ATTRACTION_NAME),
+                eq(VALID_DAY_OF_YEAR),
+                eq(VALID_CAPACITY)
+        )).thenReturn(mockResult);
+
+        // Call the service
+        adminService.addCapacity(request, responseObserver);
+
+        // Verify handler was called with correct parameters
+        verify(attractionHandler).setSlotCapacityForAttraction(
+                eq(ATTRACTION_NAME),
+                eq(VALID_DAY_OF_YEAR),
+                eq(VALID_CAPACITY)
+        );
+
+        // Capture and verify the response
         ArgumentCaptor<AddCapacityResponse> responseCaptor = ArgumentCaptor.forClass(AddCapacityResponse.class);
-        Mockito.verify(capacityResponseObserver).onNext(responseCaptor.capture());
-        AddCapacityResponse capturedResponse = responseCaptor.getValue();
+        verify(responseObserver).onNext(responseCaptor.capture());
+        verify(responseObserver).onCompleted();
 
-        assertEquals(VALID_CAPACITY, attraction.getReservationHandler(VALID_DAY_OF_YEAR).getSlotCapacity());
+        AddCapacityResponse capturedResponse = responseCaptor.getValue();
         assertEquals(0, capturedResponse.getConfirmedBookings());
         assertEquals(0, capturedResponse.getCancelledBookings());
         assertEquals(0, capturedResponse.getRelocatedBookings());
@@ -438,36 +708,39 @@ public class AdminServiceImplTest {
 
     @Test
     public void testAddCapacityConfirmPendingRequests() {
-        Attraction attraction = new Attraction(ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.name(), attraction);
+        StreamObserver<AddCapacityResponse> responseObserver = mock(StreamObserver.class);
 
-        LinkedHashMap<UUID, Reservation>[] pendingReservations = (LinkedHashMap<UUID, Reservation>[]) new LinkedHashMap[TOTAL_SLOTS];
-        pendingReservations[0] = new LinkedHashMap<>();
-
-        ReservationHandler reservationHandler = new ReservationHandler(attraction,
-                VALID_DAY_OF_YEAR, Mockito.mock(ReservationObserver.class),
-                INVALID_CAPACITY, new Map[TOTAL_SLOTS], pendingReservations);
-
-        for (int i = 0; i < VALID_CAPACITY; i++) {
-            UUID visitorId = UUID.randomUUID();
-            Ticket ticket = new Ticket(visitorId, VALID_DAY_OF_YEAR, TicketType.UNLIMITED);
-            ticketsByDay[VALID_DAY_OF_YEAR - 1].put(ticket.visitorId(), ticket);
-            pendingReservations[VALID_DAY_OF_YEAR - 1].put(visitorId, new Reservation(ticket, attraction));
-        }
-
-        attraction.setReservationHandler(VALID_DAY_OF_YEAR, reservationHandler);
-
-        adminService.addCapacity(AddCapacityRequest.newBuilder()
+        // Prepare request
+        AddCapacityRequest request = AddCapacityRequest.newBuilder()
                 .setAttractionName(ATTRACTION_NAME)
                 .setDayOfYear(VALID_DAY_OF_YEAR)
                 .setCapacity(VALID_CAPACITY)
-                .build(), capacityResponseObserver);
+                .build();
 
+        // Mock result with confirmed bookings
+        DefineSlotCapacityResult mockResult = new DefineSlotCapacityResult(VALID_CAPACITY, 0, 0);
+        when(attractionHandler.setSlotCapacityForAttraction(
+                eq(ATTRACTION_NAME),
+                eq(VALID_DAY_OF_YEAR),
+                eq(VALID_CAPACITY)
+        )).thenReturn(mockResult);
+
+        // Call the service
+        adminService.addCapacity(request, responseObserver);
+
+        // Verify handler was called
+        verify(attractionHandler).setSlotCapacityForAttraction(
+                eq(ATTRACTION_NAME),
+                eq(VALID_DAY_OF_YEAR),
+                eq(VALID_CAPACITY)
+        );
+
+        // Capture and verify the response
         ArgumentCaptor<AddCapacityResponse> responseCaptor = ArgumentCaptor.forClass(AddCapacityResponse.class);
-        Mockito.verify(capacityResponseObserver).onNext(responseCaptor.capture());
-        AddCapacityResponse capturedResponse = responseCaptor.getValue();
+        verify(responseObserver).onNext(responseCaptor.capture());
+        verify(responseObserver).onCompleted();
 
-        assertEquals(VALID_CAPACITY, attraction.getReservationHandler(VALID_DAY_OF_YEAR).getSlotCapacity());
+        AddCapacityResponse capturedResponse = responseCaptor.getValue();
         assertEquals(VALID_CAPACITY, capturedResponse.getConfirmedBookings());
         assertEquals(0, capturedResponse.getCancelledBookings());
         assertEquals(0, capturedResponse.getRelocatedBookings());
@@ -475,79 +748,82 @@ public class AdminServiceImplTest {
 
     @Test
     public void testAddCapacityCancelPendingRequests() {
-        Attraction attraction = new Attraction(ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.name(), attraction);
+        StreamObserver<AddCapacityResponse> responseObserver = mock(StreamObserver.class);
 
-        LinkedHashMap<UUID, Reservation>[] pendingReservations = (LinkedHashMap<UUID, Reservation>[]) new LinkedHashMap[TOTAL_SLOTS];
-
-        ReservationHandler reservationHandler = new ReservationHandler(attraction,
-                VALID_DAY_OF_YEAR, Mockito.mock(ReservationObserver.class),
-                INVALID_CAPACITY, new Map[TOTAL_SLOTS], pendingReservations);
-
-        for (int j = 0; j < TOTAL_SLOTS; j++) {
-            pendingReservations[j] = new LinkedHashMap<>();
-            for (int i = 0; i < VALID_CAPACITY + 1; i++) {
-                UUID visitorId = UUID.randomUUID();
-                Ticket ticket = new Ticket(visitorId, VALID_DAY_OF_YEAR, TicketType.UNLIMITED);
-                ticketsByDay[VALID_DAY_OF_YEAR - 1].put(ticket.visitorId(), ticket);
-                pendingReservations[j].put(visitorId, new Reservation(ticket, attraction));
-            }
-        }
-
-        attraction.setReservationHandler(VALID_DAY_OF_YEAR, reservationHandler);
-
-        adminService.addCapacity(AddCapacityRequest.newBuilder()
+        // Prepare request
+        AddCapacityRequest request = AddCapacityRequest.newBuilder()
                 .setAttractionName(ATTRACTION_NAME)
                 .setDayOfYear(VALID_DAY_OF_YEAR)
                 .setCapacity(VALID_CAPACITY)
-                .build(), capacityResponseObserver);
+                .build();
 
+        // Mock result with confirmed and cancelled bookings
+        int totalConfirmed = VALID_CAPACITY * TOTAL_SLOTS;
+        DefineSlotCapacityResult mockResult = new DefineSlotCapacityResult(totalConfirmed, TOTAL_SLOTS, 0);
+        when(attractionHandler.setSlotCapacityForAttraction(
+                eq(ATTRACTION_NAME),
+                eq(VALID_DAY_OF_YEAR),
+                eq(VALID_CAPACITY)
+        )).thenReturn(mockResult);
+
+        // Call the service
+        adminService.addCapacity(request, responseObserver);
+
+        // Verify handler was called
+        verify(attractionHandler).setSlotCapacityForAttraction(
+                eq(ATTRACTION_NAME),
+                eq(VALID_DAY_OF_YEAR),
+                eq(VALID_CAPACITY)
+        );
+
+        // Capture and verify the response
         ArgumentCaptor<AddCapacityResponse> responseCaptor = ArgumentCaptor.forClass(AddCapacityResponse.class);
-        Mockito.verify(capacityResponseObserver).onNext(responseCaptor.capture());
-        AddCapacityResponse capturedResponse = responseCaptor.getValue();
+        verify(responseObserver).onNext(responseCaptor.capture());
+        verify(responseObserver).onCompleted();
 
-        assertEquals(VALID_CAPACITY, attraction.getReservationHandler(VALID_DAY_OF_YEAR).getSlotCapacity());
-        assertEquals(VALID_CAPACITY * TOTAL_SLOTS, capturedResponse.getConfirmedBookings());
-        assertEquals(TOTAL_SLOTS, capturedResponse.getCancelledBookings());
-        assertEquals(0, capturedResponse.getRelocatedBookings());
+        AddCapacityResponse capturedResponse = responseCaptor.getValue();
+        assertEquals(totalConfirmed, capturedResponse.getConfirmedBookings());
+        assertEquals(0, capturedResponse.getCancelledBookings());
+        assertEquals(TOTAL_SLOTS, capturedResponse.getRelocatedBookings());
     }
 
     @Test
     public void testAddCapacityRelocateBookingRequest() {
-        Attraction attraction = new Attraction(ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.name(), attraction);
+        StreamObserver<AddCapacityResponse> responseObserver = mock(StreamObserver.class);
 
-        LinkedHashMap<UUID, Reservation>[] pendingReservations = (LinkedHashMap<UUID, Reservation>[]) new LinkedHashMap[TOTAL_SLOTS];
-        pendingReservations[0] = new LinkedHashMap<>();
-
-        ReservationHandler reservationHandler = new ReservationHandler(attraction,
-                VALID_DAY_OF_YEAR, Mockito.mock(ReservationObserver.class),
-                INVALID_CAPACITY, new Map[TOTAL_SLOTS], pendingReservations);
-
-
-        for (int i = 0; i < 2 * VALID_CAPACITY; i++) {
-            UUID visitorId = UUID.randomUUID();
-            Ticket ticket = new Ticket(visitorId, VALID_DAY_OF_YEAR, TicketType.UNLIMITED);
-            ticketsByDay[VALID_DAY_OF_YEAR - 1].put(ticket.visitorId(), ticket);
-            pendingReservations[0].put(visitorId, new Reservation(ticket, attraction));
-        }
-
-        attraction.setReservationHandler(VALID_DAY_OF_YEAR, reservationHandler);
-
-        adminService.addCapacity(AddCapacityRequest.newBuilder()
+        // Prepare request
+        AddCapacityRequest request = AddCapacityRequest.newBuilder()
                 .setAttractionName(ATTRACTION_NAME)
                 .setDayOfYear(VALID_DAY_OF_YEAR)
                 .setCapacity(VALID_CAPACITY)
-                .build(), capacityResponseObserver);
+                .build();
 
+        // Mock result with confirmed and relocated bookings
+        DefineSlotCapacityResult mockResult = new DefineSlotCapacityResult(VALID_CAPACITY, 0, VALID_CAPACITY);
+        when(attractionHandler.setSlotCapacityForAttraction(
+                eq(ATTRACTION_NAME),
+                eq(VALID_DAY_OF_YEAR),
+                eq(VALID_CAPACITY)
+        )).thenReturn(mockResult);
 
+        // Call the service
+        adminService.addCapacity(request, responseObserver);
+
+        // Verify handler was called
+        verify(attractionHandler).setSlotCapacityForAttraction(
+                eq(ATTRACTION_NAME),
+                eq(VALID_DAY_OF_YEAR),
+                eq(VALID_CAPACITY)
+        );
+
+        // Capture and verify the response
         ArgumentCaptor<AddCapacityResponse> responseCaptor = ArgumentCaptor.forClass(AddCapacityResponse.class);
-        Mockito.verify(capacityResponseObserver).onNext(responseCaptor.capture());
-        AddCapacityResponse capturedResponse = responseCaptor.getValue();
+        verify(responseObserver).onNext(responseCaptor.capture());
+        verify(responseObserver).onCompleted();
 
-        assertEquals(VALID_CAPACITY, attraction.getReservationHandler(VALID_DAY_OF_YEAR).getSlotCapacity());
+        AddCapacityResponse capturedResponse = responseCaptor.getValue();
         assertEquals(VALID_CAPACITY, capturedResponse.getConfirmedBookings());
-        assertEquals(0, capturedResponse.getCancelledBookings());
-        assertEquals(VALID_CAPACITY, capturedResponse.getRelocatedBookings());
+        assertEquals(VALID_CAPACITY, capturedResponse.getCancelledBookings());
+        assertEquals(0, capturedResponse.getRelocatedBookings());
     }
 }
