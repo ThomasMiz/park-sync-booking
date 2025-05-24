@@ -8,12 +8,14 @@ import edu.itba.serverdps.domain.model.result.MakeReservationResult;
 import edu.itba.serverdps.domain.model.result.SuggestedCapacityResult;
 import edu.itba.serverdps.application.utils.Constants;
 import lombok.Getter;
+import lombok.experimental.Accessors;
 
 import java.time.LocalTime;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.UUID;
 
+@Accessors(fluent = true)
 public class Attraction {
     @Getter
     private final String name;

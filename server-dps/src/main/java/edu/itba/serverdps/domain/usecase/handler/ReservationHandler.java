@@ -74,9 +74,9 @@ public class ReservationHandler {
         this.dayOfYear = dayOfYear;
         this.reservationObserver = reservationObserver;
 
-        LocalTime openingTime = attraction.getOpeningTime();
-        LocalTime closingTime = attraction.getClosingTime();
-        int slotDuration = attraction.getSlotDuration();
+        LocalTime openingTime = attraction.openingTime();
+        LocalTime closingTime = attraction.closingTime();
+        int slotDuration = attraction.slotDuration();
         this.firstSlotMinuteOfDay = openingTime.getMinute() + openingTime.getHour() * 60;
 
         // slotCount is calculated as: slotCount = ceiling(totalMinutesOpen / slotDuration)
@@ -100,9 +100,9 @@ public class ReservationHandler {
         this.slotCapacity = slotCapacity;
         this.reservationObserver = reservationObserver;
 
-        LocalTime openingTime = attraction.getOpeningTime();
-        LocalTime closingTime = attraction.getClosingTime();
-        int slotDuration = attraction.getSlotDuration();
+        LocalTime openingTime = attraction.openingTime();
+        LocalTime closingTime = attraction.closingTime();
+        int slotDuration = attraction.slotDuration();
         this.firstSlotMinuteOfDay = openingTime.getMinute() + openingTime.getHour() * 60;
 
         // slotCount is calculated as: slotCount = ceiling(totalMinutesOpen / slotDuration)
@@ -137,7 +137,7 @@ public class ReservationHandler {
      * Gets the index in the 'slots' array where the slot for a given time is, or -1 if there's no slot with that time.
      */
     private int getSlotIndex(LocalTime slotTime) {
-        int slotDuration = attraction.getSlotDuration();
+        int slotDuration = attraction.slotDuration();
         int slotMinuteOfDay = slotTime.getMinute() + slotTime.getHour() * 60;
         int diff = slotMinuteOfDay - firstSlotMinuteOfDay;
         int slotIndex = diff / slotDuration;
@@ -166,7 +166,7 @@ public class ReservationHandler {
      * Inverse of getSlotIndex().
      */
     private LocalTime getSlotTimeByIndex(int slotIndex) {
-        int slotMinuteOfDay = firstSlotMinuteOfDay + slotIndex * attraction.getSlotDuration();
+        int slotMinuteOfDay = firstSlotMinuteOfDay + slotIndex * attraction.slotDuration();
         return LocalTime.ofSecondOfDay(slotMinuteOfDay * 60L);
     }
 
@@ -429,7 +429,7 @@ public class ReservationHandler {
      * Similar to getSlotIndex, but rounding and clamping the slot index instead of fetching an exact match.
      */
     private int getClampedSlotIndex(LocalTime slotTime, boolean clampMin) {
-        int slotDuration = attraction.getSlotDuration();
+        int slotDuration = attraction.slotDuration();
         int slotMinuteOfDay = slotTime.getMinute() + slotTime.getHour() * 60;
 
         if (slotMinuteOfDay < firstSlotMinuteOfDay)
@@ -468,7 +468,7 @@ public class ReservationHandler {
                     int pendingCount = pendings == null ? 0 : pendings.size();
 
                     resultCollection.add(new AttractionAvailabilityResult(
-                            this.attraction.getName(), 
+                            this.attraction.name(),
                             slotTime, 
                             this.slotCapacity, 
                             confirmedCount, 

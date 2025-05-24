@@ -16,6 +16,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -55,15 +56,20 @@ public class AdminServiceImplTest {
     private static final int VALID_CAPACITY = 10;
     private static final int INVALID_CAPACITY = -1;
 
+    // TODO: REMOVE
     private final ConcurrentMap<String, Attraction> attractions = new ConcurrentHashMap<>();
     private final ConcurrentMap<UUID, Ticket>[] ticketsByDay = TestUtils.generateTicketsByDayMaps();
-    private final AttractionHandler attractionHandler = new AttractionHandler(attractions, ticketsByDay);
-    private final AdminServiceImpl adminService = new AdminServiceImpl(attractionHandler);
+
+    @Mock
+    private AttractionHandler attractionHandler;
 
     @Mock
     private StreamObserver<Empty> emptyStreamObserver;
     @Mock
     private StreamObserver<AddCapacityResponse> capacityResponseObserver;
+
+    @InjectMocks
+    private final AdminServiceImpl adminService = new AdminServiceImpl(attractionHandler);
 
     @Before
     public void setUp() {
@@ -88,7 +94,7 @@ public class AdminServiceImplTest {
     @Test
     public void testAddAnotherAttraction() {
         Attraction attraction = new Attraction(ANOTHER_ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.getName(), attraction);
+        attractions.put(attraction.name(), attraction);
 
         final AddAttractionRequest request = AddAttractionRequest.newBuilder()
                 .setName(ATTRACTION_NAME)
@@ -107,7 +113,7 @@ public class AdminServiceImplTest {
     @Test
     public void testAddAttractionWithExistingName() {
         final Attraction attraction = new Attraction(ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.getName(), attraction);
+        attractions.put(attraction.name(), attraction);
 
         final AddAttractionRequest request = AddAttractionRequest.newBuilder()
                 .setName(ATTRACTION_NAME)
@@ -383,7 +389,7 @@ public class AdminServiceImplTest {
     @Test
     public void testAddCapacityFailureCapacityIsNegative() {
         Attraction attraction = new Attraction(ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.getName(), attraction);
+        attractions.put(attraction.name(), attraction);
 
         assertThrows(NegativeCapacityException.class, () -> adminService.addCapacity(AddCapacityRequest.newBuilder()
                 .setAttractionName(ATTRACTION_NAME)
@@ -395,7 +401,7 @@ public class AdminServiceImplTest {
     @Test
     public void testAddCapacityFailureCapacityAlreadySet() {
         Attraction attraction = new Attraction(ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.getName(), attraction);
+        attractions.put(attraction.name(), attraction);
 
         ReservationHandler reservationHandler = new ReservationHandler(attraction,
                 VALID_DAY_OF_YEAR, Mockito.mock(ReservationObserver.class),
@@ -412,7 +418,7 @@ public class AdminServiceImplTest {
     @Test
     public void testAddCapacitySuccess() {
         Attraction attraction = new Attraction(ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.getName(), attraction);
+        attractions.put(attraction.name(), attraction);
 
         adminService.addCapacity(AddCapacityRequest.newBuilder()
                 .setAttractionName(ATTRACTION_NAME)
@@ -433,7 +439,7 @@ public class AdminServiceImplTest {
     @Test
     public void testAddCapacityConfirmPendingRequests() {
         Attraction attraction = new Attraction(ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.getName(), attraction);
+        attractions.put(attraction.name(), attraction);
 
         LinkedHashMap<UUID, Reservation>[] pendingReservations = (LinkedHashMap<UUID, Reservation>[]) new LinkedHashMap[TOTAL_SLOTS];
         pendingReservations[0] = new LinkedHashMap<>();
@@ -470,7 +476,7 @@ public class AdminServiceImplTest {
     @Test
     public void testAddCapacityCancelPendingRequests() {
         Attraction attraction = new Attraction(ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.getName(), attraction);
+        attractions.put(attraction.name(), attraction);
 
         LinkedHashMap<UUID, Reservation>[] pendingReservations = (LinkedHashMap<UUID, Reservation>[]) new LinkedHashMap[TOTAL_SLOTS];
 
@@ -509,7 +515,7 @@ public class AdminServiceImplTest {
     @Test
     public void testAddCapacityRelocateBookingRequest() {
         Attraction attraction = new Attraction(ATTRACTION_NAME, LocalTime.parse(OPENING_TIME), LocalTime.parse(CLOSING_TIME), SLOT_GAP);
-        attractions.put(attraction.getName(), attraction);
+        attractions.put(attraction.name(), attraction);
 
         LinkedHashMap<UUID, Reservation>[] pendingReservations = (LinkedHashMap<UUID, Reservation>[]) new LinkedHashMap[TOTAL_SLOTS];
         pendingReservations[0] = new LinkedHashMap<>();

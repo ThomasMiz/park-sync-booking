@@ -46,7 +46,7 @@ public class QueryServiceImpl extends QueryServiceGrpc.QueryServiceImplBase {
 
     private SuggestedCapacity buildSuggestedCapacityResponse(SuggestedCapacityResult result) {
         return SuggestedCapacity.newBuilder()
-                .setAttractionName(result.attraction().getName())
+                .setAttractionName(result.attraction().name())
                 .setMaxPendingReservations(result.maxPendingReservationCount())
                 .setSlotWithMaxReservations(ParseUtils.formatTime(result.slotTime()))
                 .build();
@@ -54,7 +54,7 @@ public class QueryServiceImpl extends QueryServiceGrpc.QueryServiceImplBase {
 
     private edu.itba.serverdps.port.driving.grpc.ConfirmedReservation buildConfirmedReservationResponse(ConfirmedReservation result) {
         return edu.itba.serverdps.port.driving.grpc.ConfirmedReservation.newBuilder()
-                .setAttractionName(result.attraction().getName())
+                .setAttractionName(result.attraction().name())
                 .setVisitorId(result.visitorId().toString())
                 .setSlot(ParseUtils.formatTime(result.slotTime()))
                 .build();

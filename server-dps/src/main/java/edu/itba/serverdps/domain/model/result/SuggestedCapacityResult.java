@@ -18,6 +18,6 @@ public record SuggestedCapacityResult(
 ) {
     public int compareCapacityTo(SuggestedCapacityResult other) {
         int cmp = Integer.compare(other.maxPendingReservationCount, this.maxPendingReservationCount);
-        return cmp == 0 ? this.attraction.getName().compareTo(other.attraction.getName()) : cmp;
+        return cmp == 0 ? this.attraction.name().compareTo(other.attraction.name()) : cmp;
     }
 }

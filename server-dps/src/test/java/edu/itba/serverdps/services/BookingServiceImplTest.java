@@ -17,6 +17,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -52,14 +53,21 @@ public class BookingServiceImplTest {
     private static final TicketType TICKET_TYPE_FULL_DAY = TicketType.FULL_DAY;
     private static final TicketType TICKET_TYPE_HALF_DAY = TicketType.HALF_DAY;
     private static final int MAX_BOOKINGS_FOR_FULL_DAY = 3;
-    private static final ConcurrentMap<String, Attraction> attractions = new ConcurrentHashMap<>();
-    private static final ConcurrentMap<UUID, Ticket>[] ticketsByDay = TestUtils.generateTicketsByDayMaps();
+
     @Mock
     private static StreamObserver<AvailabilityResponse> availabilityResponseObserver = Mockito.mock(StreamObserver.class);
     @Mock
     private static StreamObserver<GetAttractionsResponse> attractionResponseObserver = Mockito.mock(StreamObserver.class);
-    private final AttractionHandler attractionHandler = new AttractionHandler(attractions, ticketsByDay);
-    private final BookingServiceImpl bookingService = new BookingServiceImpl(attractionHandler);
+
+    @Mock
+    private AttractionHandler attractionHandler;
+
+    @InjectMocks
+    private BookingServiceImpl bookingService;
+
+    // TODO: REMOVE
+    private static final ConcurrentMap<String, Attraction> attractions = new ConcurrentHashMap<>();
+    private static final ConcurrentMap<UUID, Ticket>[] ticketsByDay = TestUtils.generateTicketsByDayMaps();
 
     @Before
     public void setUp() {

@@ -101,9 +101,9 @@ public class BookingServiceImpl extends BookingServiceGrpc.BookingServiceImplBas
 
     private edu.itba.serverdps.port.driving.grpc.Attraction buildAttractionResponse(Attraction attraction) {
         return edu.itba.serverdps.port.driving.grpc.Attraction.newBuilder()
-                .setName(attraction.getName())
-                .setClosingTime(ParseUtils.formatTime(attraction.getClosingTime()))
-                .setOpeningTime(ParseUtils.formatTime(attraction.getOpeningTime()))
+                .setName(attraction.name())
+                .setClosingTime(ParseUtils.formatTime(attraction.closingTime()))
+                .setOpeningTime(ParseUtils.formatTime(attraction.openingTime()))
                 .build();
     }
 
