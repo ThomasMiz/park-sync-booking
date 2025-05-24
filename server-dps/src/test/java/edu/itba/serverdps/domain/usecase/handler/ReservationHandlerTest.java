@@ -1,8 +1,7 @@
-package edu.itba.serverdps.services;
+package edu.itba.serverdps.domain.usecase.handler;
 
 import edu.itba.serverdps.application.exceptions.*;
 import edu.itba.serverdps.domain.model.*;
-import edu.itba.serverdps.domain.usecase.handler.ReservationHandler;
 import edu.itba.serverdps.domain.model.result.DefineSlotCapacityResult;
 import edu.itba.serverdps.domain.model.result.MakeReservationResult;
 import edu.itba.serverdps.domain.model.result.SuggestedCapacityResult;

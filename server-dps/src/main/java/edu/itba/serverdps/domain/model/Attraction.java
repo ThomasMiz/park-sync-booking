@@ -97,6 +97,7 @@ public class Attraction {
     /**
      * Sets the reservation handler for a given day of year. ONLY USED FOR TESTING PURPOSES!
      */
+    // TODO: REMOVE THIS
     public void setReservationHandler(int dayOfYear, ReservationHandler reservationHandler) {
         reservationHandlers[dayOfYear - 1] = reservationHandler;
     }

@@ -14,6 +14,7 @@ import edu.itba.serverdps.domain.model.result.DefineSlotCapacityResult;
 import edu.itba.serverdps.domain.model.result.MakeReservationResult;
 import edu.itba.serverdps.domain.model.result.SuggestedCapacityResult;
 import edu.itba.serverdps.domain.usecase.ReservationObserver;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -25,21 +26,15 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Component
+@RequiredArgsConstructor
 public class AttractionHandler {
-    private final ConcurrentMap<String, Attraction> attractions;
-    private final List<ConcurrentMap<UUID, Ticket>> ticketsByDay;
     private final ReservationObserver reservationObserver;
 
-    @Autowired
-    public AttractionHandler(ReservationObserver reservationObserver) {
-        this.attractions = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Attraction> attractions = new ConcurrentHashMap<>();
 
-        this.ticketsByDay = Stream.generate(() -> (ConcurrentMap<UUID, Ticket>) new ConcurrentHashMap<UUID, Ticket>())
-                .limit(Constants.DAYS_IN_YEAR)
-                .toList();
-
-        this.reservationObserver = reservationObserver;
-    }
+    private final List<ConcurrentMap<UUID, Ticket>> ticketsByDay = Stream.generate(() -> (ConcurrentMap<UUID, Ticket>) new ConcurrentHashMap<UUID, Ticket>())
+            .limit(Constants.DAYS_IN_YEAR)
+            .toList();
 
     private Ticket getTicketOrThrow(UUID visitorId, int dayOfYear) {
         return Optional.ofNullable(this.ticketsByDay.get(dayOfYear - 1).get(visitorId))
@@ -111,6 +106,7 @@ public class AttractionHandler {
      */
     public Collection<AttractionAvailabilityResult> getAvailabilityForAllAttractions(int dayOfYear, LocalTime slotFrom, LocalTime slotTo) {
         return attractions.values().stream()
+                .sorted(Comparator.comparing(Attraction::name))
                 .map(attraction -> {
                     List<AttractionAvailabilityResult> results = new ArrayList<>();
                     attraction.getAvailability(results, dayOfYear, slotFrom, slotTo);

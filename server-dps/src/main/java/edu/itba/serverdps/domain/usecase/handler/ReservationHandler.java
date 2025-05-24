@@ -5,11 +5,11 @@ import edu.itba.serverdps.domain.model.Attraction;
 import edu.itba.serverdps.domain.model.ConfirmedReservation;
 import edu.itba.serverdps.domain.model.Reservation;
 import edu.itba.serverdps.domain.model.Ticket;
-import edu.itba.serverdps.domain.usecase.ReservationObserver;
 import edu.itba.serverdps.domain.model.result.AttractionAvailabilityResult;
 import edu.itba.serverdps.domain.model.result.DefineSlotCapacityResult;
 import edu.itba.serverdps.domain.model.result.MakeReservationResult;
 import edu.itba.serverdps.domain.model.result.SuggestedCapacityResult;
+import edu.itba.serverdps.domain.usecase.ReservationObserver;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
@@ -57,8 +57,7 @@ public class ReservationHandler {
     /**
      * The amount of people each slot may assign, or -1 if this has not been defined yet.
      * -- GETTER --
-     *  Gets the slot capacity, or -1 if it hasn't been defined yet.
-
+     * Gets the slot capacity, or -1 if it hasn't been defined yet.
      */
     private int slotCapacity = -1;
     /**
@@ -412,18 +411,17 @@ public class ReservationHandler {
             return null;
 
         return IntStream.range(0, slotPendingRequests.length)
-                .mapToObj(i -> new AbstractMap.SimpleEntry<>(i, 
+                .mapToObj(i -> new AbstractMap.SimpleEntry<>(i,
                         Optional.ofNullable(slotPendingRequests[i])
                                 .map(LinkedHashMap::size)
                                 .orElse(0)))
                 .max(Map.Entry.comparingByValue())
                 .map(entry -> new SuggestedCapacityResult(
-                        attraction, 
-                        entry.getValue(), 
+                        attraction,
+                        entry.getValue(),
                         getSlotTimeByIndex(entry.getKey())))
                 .orElse(null);
     }
-
 
     /**
      * Similar to getSlotIndex, but rounding and clamping the slot index instead of fetching an exact match.
@@ -458,22 +456,21 @@ public class ReservationHandler {
         int slotFromIndex = getClampedSlotIndex(slotFrom, true);
         int slotToIndex = slotTo == null ? slotFromIndex : getClampedSlotIndex(slotTo, false);
 
-        IntStream.rangeClosed(slotFromIndex, slotToIndex)
-                .forEach(slotIndex -> {
-                    Map<UUID, ConfirmedReservation> confirmed = slotConfirmedRequests[slotIndex];
-                    LinkedHashMap<UUID, Reservation> pendings = slotPendingRequests[slotIndex];
-                    LocalTime slotTime = getSlotTimeByIndex(slotIndex);
+        IntStream.rangeClosed(slotFromIndex, slotToIndex).forEach(slotIndex -> {
+            Map<UUID, ConfirmedReservation> confirmed = slotConfirmedRequests[slotIndex];
+            LinkedHashMap<UUID, Reservation> pendings = slotPendingRequests[slotIndex];
+            LocalTime slotTime = getSlotTimeByIndex(slotIndex);
 
-                    int confirmedCount = confirmed == null ? 0 : confirmed.size();
-                    int pendingCount = pendings == null ? 0 : pendings.size();
+            int confirmedCount = confirmed == null ? 0 : confirmed.size();
+            int pendingCount = pendings == null ? 0 : pendings.size();
 
-                    resultCollection.add(new AttractionAvailabilityResult(
-                            this.attraction.name(),
-                            slotTime, 
-                            this.slotCapacity, 
-                            confirmedCount, 
-                            pendingCount));
-                });
+            resultCollection.add(new AttractionAvailabilityResult(
+                    this.attraction.name(),
+                    slotTime,
+                    this.slotCapacity,
+                    confirmedCount,
+                    pendingCount));
+        });
     }
 
     /**

@@ -1,7 +1,6 @@
-package edu.itba.serverdps.services;
+package edu.itba.serverdps.adapter.driving;
 
 import com.google.protobuf.Empty;
-import edu.itba.serverdps.adapter.driving.AdminServiceImpl;
 import edu.itba.serverdps.application.exceptions.*;
 import edu.itba.serverdps.domain.model.TicketType;
 import edu.itba.serverdps.domain.model.result.DefineSlotCapacityResult;
