@@ -1,17 +1,17 @@
 package edu.itba.serverdps.adapter.driving;
 
+import com.google.protobuf.Empty;
+import edu.itba.serverdps.application.utils.ParseUtils;
+import edu.itba.serverdps.domain.model.Attraction;
+import edu.itba.serverdps.domain.model.ConfirmedReservation;
+import edu.itba.serverdps.domain.model.Reservation;
+import edu.itba.serverdps.domain.usecase.NotificationStreamObserver;
+import edu.itba.serverdps.domain.usecase.handler.AttractionHandler;
+import edu.itba.serverdps.domain.usecase.handler.NotificationRouterHandler;
 import edu.itba.serverdps.port.driving.grpc.AttractionNotificationServiceGrpc;
 import edu.itba.serverdps.port.driving.grpc.Notification;
 import edu.itba.serverdps.port.driving.grpc.NotificationRequest;
 import edu.itba.serverdps.port.driving.grpc.NotificationType;
-import edu.itba.serverdps.domain.usecase.handler.AttractionHandler;
-import edu.itba.serverdps.domain.model.Attraction;
-import edu.itba.serverdps.domain.model.ConfirmedReservation;
-import edu.itba.serverdps.domain.model.Reservation;
-import edu.itba.serverdps.domain.usecase.handler.NotificationRouterHandler;
-import edu.itba.serverdps.domain.usecase.NotificationStreamObserver;
-import edu.itba.serverdps.application.utils.ParseUtils;
-import com.google.protobuf.Empty;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.grpc.server.service.GrpcService;
@@ -44,7 +44,7 @@ public class NotificationServiceImpl extends AttractionNotificationServiceGrpc.A
 
         Attraction attraction = attractionHandler.getAttraction(attractionName);
         notificationRouterHandler.unsubscribe(attraction, visitorId, dayOfYear);
-        
+
         responseObserver.onNext(Empty.getDefaultInstance());
         responseObserver.onCompleted();
     }
@@ -82,8 +82,8 @@ public class NotificationServiceImpl extends AttractionNotificationServiceGrpc.A
             if (completed) return;
 
             Notification notification = Notification.newBuilder()
-                    .setType(isConfirmed ? 
-                            NotificationType.NOTIFICATION_TYPE_BOOKING_CREATED_CONFIRMED : 
+                    .setType(isConfirmed ?
+                            NotificationType.NOTIFICATION_TYPE_BOOKING_CREATED_CONFIRMED :
                             NotificationType.NOTIFICATION_TYPE_BOOKING_CREATED_PENDING)
                     .setSlotTime(ParseUtils.formatTime(slotTime))
                     .build();

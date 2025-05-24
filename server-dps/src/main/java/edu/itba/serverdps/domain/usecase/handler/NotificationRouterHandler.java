@@ -2,19 +2,19 @@ package edu.itba.serverdps.domain.usecase.handler;
 
 import edu.itba.serverdps.application.exceptions.AlreadyRegisteredForNotificationsException;
 import edu.itba.serverdps.application.exceptions.NotRegisteredForNotificationsException;
+import edu.itba.serverdps.application.utils.Constants;
 import edu.itba.serverdps.domain.model.Attraction;
 import edu.itba.serverdps.domain.model.ConfirmedReservation;
 import edu.itba.serverdps.domain.model.Reservation;
 import edu.itba.serverdps.domain.usecase.NotificationStreamObserver;
 import edu.itba.serverdps.domain.usecase.ReservationObserver;
-import edu.itba.serverdps.application.utils.Constants;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalTime;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.Optional;
 
 /**
  * An implementation of ReservationObserver that routes notifications to different NotificationStreamObserver instances
@@ -34,8 +34,8 @@ public class NotificationRouterHandler implements ReservationObserver {
     public void onSlotCapacitySet(Attraction attraction, int dayOfYear, int slotCapacity) {
         Optional.ofNullable(streamsByDay[dayOfYear])
                 .map(attractionMap -> attractionMap.get(attraction))
-                .ifPresent(idMap -> idMap.forEach((vid, notif) -> 
-                    notif.onSlotCapacitySet(attraction, dayOfYear, slotCapacity)));
+                .ifPresent(idMap -> idMap.forEach((vid, notif) ->
+                        notif.onSlotCapacitySet(attraction, dayOfYear, slotCapacity)));
     }
 
     @Override
@@ -71,8 +71,10 @@ public class NotificationRouterHandler implements ReservationObserver {
                 });
     }
 
-    private void notifyObserver(int dayOfYear, Attraction attraction, UUID visitorId, 
-            java.util.function.Consumer<NotificationStreamObserver> action) {
+    private void notifyObserver(
+            int dayOfYear, Attraction attraction, UUID visitorId,
+            java.util.function.Consumer<NotificationStreamObserver> action
+    ) {
         Optional.ofNullable(streamsByDay[dayOfYear])
                 .map(attractionMap -> attractionMap.get(attraction))
                 .map(idMap -> idMap.remove(visitorId))
@@ -92,8 +94,8 @@ public class NotificationRouterHandler implements ReservationObserver {
                 .map(attractionMap -> attractionMap.get(attraction))
                 .map(idMap -> idMap.remove(visitorId))
                 .ifPresentOrElse(
-                    stream -> stream.onComplete(),
-                    () -> { throw new NotRegisteredForNotificationsException(); }
+                        stream -> stream.onComplete(),
+                        () -> {throw new NotRegisteredForNotificationsException();}
                 );
     }
 }

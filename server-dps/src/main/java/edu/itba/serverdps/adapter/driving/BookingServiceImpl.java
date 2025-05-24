@@ -1,14 +1,14 @@
 package edu.itba.serverdps.adapter.driving;
 
+import com.google.protobuf.Empty;
 import edu.itba.serverdps.application.exceptions.CheckAvailabilityInvalidArgumentException;
 import edu.itba.serverdps.application.exceptions.InvalidSlotException;
-import edu.itba.serverdps.port.driving.grpc.*;
-import edu.itba.serverdps.domain.usecase.handler.AttractionHandler;
+import edu.itba.serverdps.application.utils.ParseUtils;
 import edu.itba.serverdps.domain.model.Attraction;
 import edu.itba.serverdps.domain.model.result.AttractionAvailabilityResult;
 import edu.itba.serverdps.domain.model.result.MakeReservationResult;
-import edu.itba.serverdps.application.utils.ParseUtils;
-import com.google.protobuf.Empty;
+import edu.itba.serverdps.domain.usecase.handler.AttractionHandler;
+import edu.itba.serverdps.port.driving.grpc.*;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.grpc.server.service.GrpcService;
@@ -47,7 +47,7 @@ public class BookingServiceImpl extends BookingServiceGrpc.BookingServiceImplBas
         final var slotTo = ParseUtils.parseTimeOptional(request.getSlotTo());
 
         validateAvailabilityRequest(attractionName, slotTo, slotFrom);
-        
+
         Collection<AttractionAvailabilityResult> availabilityResults = getAvailabilityResults(
                 attractionName, dayOfYear, slotFrom, slotTo);
 
@@ -65,7 +65,7 @@ public class BookingServiceImpl extends BookingServiceGrpc.BookingServiceImplBas
 
         MakeReservationResult result = attractionHandler.makeReservation(
                 attractionName, visitorId, dayOfYear, slotTime);
-        
+
         BookingState bookingState = mapToBookingState(result.isConfirmed());
         ReservationResponse response = ReservationResponse.newBuilder()
                 .setState(bookingState)
@@ -120,8 +120,8 @@ public class BookingServiceImpl extends BookingServiceGrpc.BookingServiceImplBas
 
     private Collection<AttractionAvailabilityResult> getAvailabilityResults(
             Optional<String> attractionName, int dayOfYear, LocalTime slotFrom, Optional<LocalTime> slotTo) {
-        return attractionName.map(name -> 
-                attractionHandler.getAvailabilityForAttraction(name, dayOfYear, slotFrom, slotTo.orElse(null)))
+        return attractionName.map(name ->
+                        attractionHandler.getAvailabilityForAttraction(name, dayOfYear, slotFrom, slotTo.orElse(null)))
                 .orElseGet(() -> attractionHandler.getAvailabilityForAllAttractions(dayOfYear, slotFrom, slotTo.orElse(null)));
     }
 
@@ -147,8 +147,8 @@ public class BookingServiceImpl extends BookingServiceGrpc.BookingServiceImplBas
     }
 
     private BookingState mapToBookingState(boolean isConfirmed) {
-        return isConfirmed ? 
-                BookingState.RESERVATION_STATUS_CONFIRMED : 
+        return isConfirmed ?
+                BookingState.RESERVATION_STATUS_CONFIRMED :
                 BookingState.RESERVATION_STATUS_PENDING;
     }
 }

@@ -1,12 +1,12 @@
 package edu.itba.serverdps.domain.model;
 
-import edu.itba.serverdps.domain.usecase.handler.ReservationHandler;
-import edu.itba.serverdps.domain.usecase.ReservationObserver;
+import edu.itba.serverdps.application.utils.Constants;
 import edu.itba.serverdps.domain.model.result.AttractionAvailabilityResult;
 import edu.itba.serverdps.domain.model.result.DefineSlotCapacityResult;
 import edu.itba.serverdps.domain.model.result.MakeReservationResult;
 import edu.itba.serverdps.domain.model.result.SuggestedCapacityResult;
-import edu.itba.serverdps.application.utils.Constants;
+import edu.itba.serverdps.domain.usecase.ReservationObserver;
+import edu.itba.serverdps.domain.usecase.handler.ReservationHandler;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 

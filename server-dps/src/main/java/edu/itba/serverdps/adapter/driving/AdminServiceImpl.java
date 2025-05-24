@@ -1,13 +1,13 @@
 package edu.itba.serverdps.adapter.driving;
 
+import com.google.protobuf.Empty;
 import edu.itba.serverdps.application.exceptions.InvalidDayException;
 import edu.itba.serverdps.application.exceptions.InvalidOpeningAndClosingTimeException;
-import edu.itba.serverdps.port.driving.grpc.*;
-import edu.itba.serverdps.domain.usecase.handler.AttractionHandler;
+import edu.itba.serverdps.application.utils.ParseUtils;
 import edu.itba.serverdps.domain.model.TicketType;
 import edu.itba.serverdps.domain.model.result.DefineSlotCapacityResult;
-import edu.itba.serverdps.application.utils.ParseUtils;
-import com.google.protobuf.Empty;
+import edu.itba.serverdps.domain.usecase.handler.AttractionHandler;
+import edu.itba.serverdps.port.driving.grpc.*;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.grpc.server.service.GrpcService;

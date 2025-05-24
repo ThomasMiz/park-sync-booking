@@ -103,8 +103,8 @@ public final class ParseUtils {
      * Returns empty if the attraction name is null or blank.
      */
     public static Optional<String> parseAttractionName(String attractionName) {
-        return (attractionName == null || attractionName.isBlank()) ? 
-                Optional.empty() : 
+        return (attractionName == null || attractionName.isBlank()) ?
+                Optional.empty() :
                 Optional.of(attractionName);
     }
 }

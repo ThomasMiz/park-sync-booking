@@ -15,7 +15,6 @@ import edu.itba.serverdps.domain.model.result.MakeReservationResult;
 import edu.itba.serverdps.domain.model.result.SuggestedCapacityResult;
 import edu.itba.serverdps.domain.usecase.ReservationObserver;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalTime;
